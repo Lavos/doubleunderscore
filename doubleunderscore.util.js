@@ -1,10 +1,17 @@
 // doubleunderscore, many functions adapted by Kris Cost
-// 09 April 2012
-
+// depends on: underscore.js
 (function(){
 	var root = this;
 	var __ = function __ (){};
-	root.__ = __;
+	var previousDoubleUnderscore = root.__;
+	root['__'] = __;
+
+	__.version = 20120611;
+
+	__.noConflict = function(){
+		root.__ = previousDoubleUnderscore;
+		return this;
+	};
 
 	__.getRandomInt = function getRandomInt (min, max) {
 		return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -39,6 +46,33 @@
 		return working;
 	})();
 
+	__.getMeta = function getMeta (target_document) {
+		var target_document = target_document || document;
+		var heads = target_document.getElementsByTagName('head');
+
+		if (heads) {
+			var metas = heads[0].getElementsByTagName('meta');
+		} else {
+			return {};
+		};
+
+		var meta_hash = {}, counter = metas.length;
+		while (counter--) {
+			var current = metas[counter];
+			if (current.getAttribute('content')) {
+				var key = current.getAttribute('property') || current.getAttribute('name') || current.getAttribute('content');
+				meta_hash[key] = current.getAttribute('content');
+			};
+		};
+
+		return meta_hash;
+	};
+
+	// standardized browser window dimensions
+	var w = window, d = document, e = d.documentElement, g = d.getElementsByTagName('body')[0];
+	__.x = w.innerWidth || e.clientWidth || g.clientWidth;
+	__.y = w.innerHeight || e.clientHeight || g.clientHeight;
+
 	// adapted from: http://www.hunlock.com/blogs/Totally_Pwn_CSS_with_Javascript
 	__.addCSS = function addCSS (cssfilename) {
 		var cssNode = document.createElement('link');
@@ -47,6 +81,29 @@
 		cssNode.href = cssfilename;
 		cssNode.media = 'all';
 		document.getElementsByTagName('head')[0].appendChild(cssNode);
+	};
+
+	__.addJS = function addJS (url, callback) {
+		var newScript = document.createElement('script');
+		newScript.type = 'text/javascript';
+		newScript.async = true;
+		var done = false;
+
+		if (callback) {
+			newScript.onload = newScript.onreadystatechange = function(){
+				if (!done && (!this.readyState || this.readyState === 'loaded' || this.readyState === 'complete')) {
+					done = true;
+
+					// Handle memory leak in IE
+					newScript.onload = newScript.onreadystatechange = null;
+					callback(this);
+				};
+			};
+		};
+
+		newScript.src = url;
+		var s = document.getElementsByTagName('script')[0];
+		s.parentNode.insertBefore(newScript, s);
 	};
 
 	// converts arrays of 2-property objects into single object: [{ name: 'a', value: 1 }, { name: 'b', value: 2 }] => { a: 1, b: 2 } 
@@ -81,12 +138,18 @@
 		function dive (point, index) {
 			var prop_name = properties[index];
 
-			if (!point || !point.hasOwnProperty(prop_name)) {
-				return default_value;
-			};
-
 			if (index === properties.length-1) {
 				return point[prop_name];
+			};
+
+			try {
+				// checks for local and inherited properties
+				if (!(point.hasOwnProperty(prop_name) || typeof point[prop_name] !== 'undefined')) {
+					return default_value;
+				};
+			} catch (e) {
+				// value doesn't have method: hasOwnProperty
+				return default_value;
 			};
 
 			return dive(point[prop_name], ++index);
@@ -150,109 +213,6 @@
 
 		return template;
 	})();
-
-	function codeHandler(code) {
-		switch (code) {
-		case 400:
-			return 'Data invalid or incomplete.';
-		break;
-
-		case 401:
-			return 'You are not authorized to access this API location.';
-		break;
-
-		case 403:
-			return 'You are not authorized to perform this action in this context.';
-		break;
-
-		case 404:
-			return 'The API location you are attempting to access can not be found.';
-		break;
-
-		case 405:
-		case 409:
-			return 'The server will not respond to that request the way it was formed.';
-		break;
-
-		default:
-		case 500:
-			return 'The call was unsuccessful, but no error message was returned.';
-		break;
-
-		};
-	};
-
-	// global API wrapper function for unified logic, schema
-	__.hitAPI = function hitAPI (params, testingparams) {
-		var defaults = {
-			type: 'GET',
-			url: '',
-                        async: true,
-			data: {},
-			success: function(){},
-			error: function(){}
-		};
-
-		var options = {};
-		_.extend(options, defaults, params, testingparams);
-
-		options.data.csrf_token = dmjs.global.csrf_token;
-
-		return $.ajax({
-			type: options.type,
-			url: options.url,
-                        async: options.async,
-			dataType: 'json',
-			data: options.data,
-			complete: function (jqXHR, textStatus) {
-				switch (textStatus) {
-				case 'success':
-				case 'notmodified':
-					try {
-						var data = JSON.parse(jqXHR.responseText);
-					} catch (e) {
-						options.error('Response was not in JSON format.');
-						return;
-					};
-
-					if (__.path(data, 'meta.code') === 200) {
-						options.success(__.path(data, 'response', []));
-					} else if (__.check(__.path(data, 'response.validation'))) {
-						options.error(__.path(data, 'response.validation'));
-					} else if (__.check(__.path(data, 'meta.error'))) {
-						options.error(__.path(data, 'meta.error'));
-					} else if (__.check(__.path(data, 'meta.code'))) {
-						options.error(codeHandler(__.path(data, 'meta.code')));
-					} else {
-						options.error('The call was unsuccessful, but no error message was returned.');
-					};
-				break;
-
-				case 'error':
-					options.error(codeHandler(jqXHR.status));
-				break;
-
-				case 'timeout':
-					options.error('The connection to the server has timed out.');
-				break;
-
-				case 'abort':
-					options.error('The connection to the server was aborted.');
-				break;
-				
-				case 'parsererror':
-					options.error('Response was not in JSON format.');
-				break;
-
-				default:
-					options.error('The server did not respond within a defined status.');
-				break;
-
-				};
-			}
-		});
-	};
-
 
 	// adapted from: https://github.com/samsonjs/strftime - Copyright 2010 - 2011 Sami Samhuri <sami.samhuri@gmail.com>, MIT License
 	// usage: __.strftime(format_string, [instance of Date], [run-time locale object], [use UTC boolean]);
@@ -519,4 +479,60 @@
 		argv.unshift(fmt);
 		return __.sprintf.apply(null, argv);
 	};
+
+        // utility constructors
+
+        __.SerialManager = function (max, callback) {
+                var self = this;
+
+                self.max = max;
+                self.counter = 0;
+                self.callback = callback;
+                self.data = {};
+        };
+
+        __.SerialManager.prototype.bump = function (label, data) {
+                var self = this;
+
+                self.data[label] = data;
+
+                if (++self.counter >= self.max) {
+                        self.callback(self.data);
+                };
+        };
+
+	// shared prototype methods
+
+	__.SharedMethods = function(){};
+
+	__.SharedMethods.prototype.on = function on (eventname, callback, once) {
+		var self = this;
+
+		if (self.subscriptions.hasOwnProperty(eventname)) {
+			callback.once = once || false;
+			self.subscriptions[eventname][self.subscriptions[eventname].length] = callback;
+		};
+	};
+
+	__.SharedMethods.prototype.fire = function fire () {
+		var self = this;
+
+		var args = _.toArray(arguments);
+		var callbacks = self.subscriptions[args[0]];
+
+		var counter = 0, limit = callbacks.length, newlist = [];
+		while (counter < limit) {
+			var callback = callbacks[counter];
+			callback.apply(self, args.slice(1));
+
+			if (!callback.once) {
+				newlist[newlist.length] = callback;
+			};
+
+			counter++;
+		};
+
+		self.subscriptions[args[0]] = newlist;
+	};
+
 })();
