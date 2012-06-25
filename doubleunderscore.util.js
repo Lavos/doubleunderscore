@@ -6,7 +6,7 @@
 	var previousDoubleUnderscore = root.__;
 	root['__'] = __;
 
-	__.version = 20120611;
+	__.version = 20120614;
 
 	__.noConflict = function(){
 		root.__ = previousDoubleUnderscore;
@@ -138,21 +138,19 @@
 		function dive (point, index) {
 			var prop_name = properties[index];
 
-			if (index === properties.length-1) {
-				return point[prop_name];
-			};
-
 			try {
-				// checks for local and inherited properties
-				if (!(point.hasOwnProperty(prop_name) || typeof point[prop_name] !== 'undefined')) {
+				if (typeof point[prop_name] !== 'undefined') {
+					if (index === properties.length-1) {
+						return point[prop_name];
+					} else {
+						return dive(point[prop_name], ++index);
+					};
+				} else {
 					return default_value;
 				};
 			} catch (e) {
-				// value doesn't have method: hasOwnProperty
 				return default_value;
 			};
-
-			return dive(point[prop_name], ++index);
 		};
 
 		return dive(obj, 0);
@@ -494,12 +492,18 @@
         __.SerialManager.prototype.bump = function (label, data) {
                 var self = this;
 
-                self.data[label] = data;
+		if (typeof label !== 'undefined') {
+			self.data[label] = data;
+		};
 
                 if (++self.counter >= self.max) {
                         self.callback(self.data);
                 };
         };
+	
+	__.SerialManager.prototype.execute = function (data) {
+		self.callback(data);
+	};
 
 	// shared prototype methods
 
