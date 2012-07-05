@@ -6,7 +6,7 @@
 	var previousDoubleUnderscore = root.__;
 	root['__'] = __;
 
-	__.version = 20120614;
+	__.version = 20120705;
 
 	__.noConflict = function(){
 		root.__ = previousDoubleUnderscore;
@@ -176,6 +176,28 @@
     			element[type + callback] = null;
 		} else {
 			element.removeEventListener(type, callback, false);
+		};
+	};
+
+	// userAction
+
+	__.onUserAction = function (callback, timeout) {
+		var timer = null;
+
+		if (timeout) {
+			timer = setTimeout(userActionFunction, timeout);
+		};
+
+		__.addEvent(document, 'mousemove', userActionFunction);
+
+		function userActionFunction () {
+			if (timer) {
+				clearTimeout(timer);
+				timer = null;
+			};
+
+			callback();
+			__.removeEvent(document, 'mousemove', userActionFunction);
 		};
 	};
 
@@ -492,18 +514,17 @@
         __.SerialManager.prototype.bump = function (label, data) {
                 var self = this;
 
-		if (typeof label !== 'undefined') {
-			self.data[label] = data;
-		};
+		        if (typeof label !== 'undefined') {
+	                self.data[label] = data;
+		        }
 
                 if (++self.counter >= self.max) {
                         self.callback(self.data);
                 };
         };
-	
-	__.SerialManager.prototype.execute = function (data) {
-		self.callback(data);
-	};
+		__.SerialManager.prototype.execute = function (data) {
+			self.callback(data);
+		 };
 
 	// shared prototype methods
 
