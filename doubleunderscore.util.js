@@ -500,32 +500,6 @@
 		return __.sprintf.apply(null, argv);
 	};
 
-        // utility constructors
-
-        __.SerialManager = function (max, callback) {
-                var self = this;
-
-                self.max = max;
-                self.counter = 0;
-                self.callback = callback;
-                self.data = {};
-        };
-
-        __.SerialManager.prototype.bump = function (label, data) {
-                var self = this;
-
-		        if (typeof label !== 'undefined') {
-	                self.data[label] = data;
-		        }
-
-                if (++self.counter >= self.max) {
-                        self.callback(self.data);
-                };
-        };
-		__.SerialManager.prototype.execute = function (data) {
-			self.callback(data);
-		 };
-
 	// shared prototype methods
 
 	__.SharedMethods = function(){};
@@ -560,4 +534,70 @@
 		self.subscriptions[args[0]] = newlist;
 	};
 
-})();
+
+
+	// utility constructors
+
+	__.SerialManager = function (max, callback) {
+		var self = this;
+
+		self.max = max;
+		self.counter = 0;
+		self.callback = callback;
+		self.data = {};
+	};
+
+	__.SerialManager.prototype.bump = function (label, data) {
+		var self = this;
+
+		if (typeof label !== 'undefined') {
+			self.data[label] = data;
+		};
+
+		if (++self.counter >= self.max) {
+			self.callback(self.data);
+		};
+	};
+
+	__.SerialManager.prototype.execute = function (data) {
+		self.callback(data);
+	};
+
+
+	__.Queue = function Queue () {
+		var self = this;
+
+		self.subscriptions = {
+			start: [],
+			step: [],
+			end: []
+		};
+
+		self.list = [];
+		self.pos = 0;
+	};
+
+	__.Queue.prototype = new __.SharedMethods();
+
+	__.Queue.prototype.add = function add (func) {
+		var self = this;
+
+		self.list[self.list.length] = func;
+	};
+
+	__.Queue.prototype.step = function step () {
+		var self = this;
+
+		if (self.pos === 0) {
+			self.fire('start');
+		} else if (self.pos >= self.list.length-1) {
+			self.fire('end');
+			return;
+		} else {
+			self.fire('step');
+		};
+
+		self.list[self.pos++].call(self);
+	};
+
+}).call(this);
