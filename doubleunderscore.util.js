@@ -590,7 +590,7 @@
 
 		if (self.pos === 0) {
 			self.fire('start');
-		} else if (self.pos >= self.list.length-1) {
+		} else if (self.pos >= self.list.length) {
 			self.fire('end');
 			return;
 		} else {
