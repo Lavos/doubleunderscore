@@ -6,7 +6,7 @@
 	var previousDoubleUnderscore = root.__;
 	root['__'] = __;
 
-	__.version = 20120705;
+	__.version = 20120722;
 
 	__.noConflict = function(){
 		root.__ = previousDoubleUnderscore;
@@ -233,6 +233,73 @@
 
 		return template;
 	})();
+
+	// returns friendly time difference between 2 Dates
+	__.timeDiff = function timeDiff (dateA, dateB) {
+		var first_date = null;
+		var second_date = null;
+
+		if (dateB) {
+			first_date = dateA;
+			second_date = dateB;
+		} else {
+			first_date = new Date();
+			second_date = dateA;
+		};
+
+		var diff_ms = first_date - second_date;
+		var is_positive = (diff_ms > 0);
+		diff_ms = Math.abs(diff_ms);
+
+		var seconds_milliseconds = __.divmod(diff_ms, 1000, 'seconds', 'milliseconds');
+		var minutes_seconds = __.divmod(seconds_milliseconds.seconds, 60, 'minutes', 'seconds');
+		var hours_minutes = __.divmod(minutes_seconds.minutes, 60, 'hours', 'minutes');
+		var days_hours = __.divmod(hours_minutes.hours, 24, 'days', 'hours');
+
+		var working = [];
+		if (days_hours.days > 0) {
+			working[working.length] = days_hours.days + ' days';
+		};
+
+		if (days_hours.hours > 0) {
+			working[working.length] = days_hours.hours + ' hours';
+		};
+
+		if (hours_minutes.minutes > 0) {
+			working[working.length] = hours_minutes.minutes + ' minutes';
+		};
+
+		if (minutes_seconds.seconds > 0) {
+			working[working.length] = minutes_seconds.seconds + ' seconds';
+		};
+
+		if (is_positive) {
+			working[working.length] = 'ago';
+		} else {
+			working[working.length] = 'in the future';
+		};
+
+		return {
+			friendly: working.join(' '),
+			positive: is_positive,
+			days: days_hours.days,
+			hours: days_hours.hours,
+			minutes: hours_minutes.minutes,
+			seconds: minutes_seconds.seconds,
+			milliseconds: seconds_milliseconds.milliseconds
+		};
+	};
+
+	__.divmod = function diffmod (dividend, divisor, label1, label2) {
+		label1 = label1 || 'quotient';
+		label2 = label2 || 'remainder';
+
+		var response = {};
+		response[label1] = parseInt(dividend / divisor, 10);
+		response[label2] = (dividend % divisor);
+
+		return response;
+	};
 
 	// adapted from: https://github.com/samsonjs/strftime - Copyright 2010 - 2011 Sami Samhuri <sami.samhuri@gmail.com>, MIT License
 	// usage: __.strftime(format_string, [instance of Date], [run-time locale object], [use UTC boolean]);
@@ -574,15 +641,18 @@
 		};
 
 		self.list = [];
+		self.args = [];
 		self.pos = 0;
 	};
 
 	__.Queue.prototype = new __.SharedMethods();
 
-	__.Queue.prototype.add = function add (func) {
+	__.Queue.prototype.add = function add () {
 		var self = this;
 
-		self.list[self.list.length] = func;
+		var args = _.toArray(arguments);
+		self.list[self.list.length] = args[0];
+		self.args[self.args.length] = args.slice(1);
 	};
 
 	__.Queue.prototype.step = function step () {
@@ -597,7 +667,8 @@
 			self.fire('step');
 		};
 
-		self.list[self.pos++].call(self);
+		self.pos++;
+		self.list[self.pos-1].apply(self, self.args[self.pos-1]);
 	};
 
 }).call(this);
