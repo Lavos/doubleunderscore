@@ -6,7 +6,7 @@
 	var previousDoubleUnderscore = root.__;
 	root['__'] = __;
 
-	__.version = 20120722;
+	__.version = 20120810;
 
 	__.noConflict = function(){
 		root.__ = previousDoubleUnderscore;
@@ -256,31 +256,64 @@
 		var hours_minutes = __.divmod(minutes_seconds.minutes, 60, 'hours', 'minutes');
 		var days_hours = __.divmod(hours_minutes.hours, 24, 'days', 'hours');
 
-		var working = [];
+		var verbose = [], suffix = '', short_phrase = '', short_stop = false;
 		if (days_hours.days > 0) {
-			working[working.length] = days_hours.days + ' days';
+			var day_noun =  ' day' + (days_hours.days > 1 ? 's' : '');
+			short_phrase = verbose[verbose.length] = days_hours.days + day_noun;
+			short_stop = true;
 		};
 
 		if (days_hours.hours > 0) {
-			working[working.length] = days_hours.hours + ' hours';
+			var hour_noun = ' hour' + (days_hours.hours > 1 ? 's' : '');
+			verbose[verbose.length] = days_hours.hours + hour_noun;
+
+			if (!short_stop) {
+				short_phrase = days_hours.hours + hour_noun;
+				short_stop = true;
+			};
 		};
 
 		if (hours_minutes.minutes > 0) {
-			working[working.length] = hours_minutes.minutes + ' minutes';
+			var minute_noun = ' minute' + (hours_minutes.minutes > 1 ? 's' : '');
+			verbose[verbose.length] = hours_minutes.minutes + minute_noun;
+
+			if (!short_stop) {
+				short_phrase = hours_minutes.minutes + minute_noun;
+				short_stop = true;
+			};
 		};
 
 		if (minutes_seconds.seconds > 0) {
-			working[working.length] = minutes_seconds.seconds + ' seconds';
+			var second_noun = ' second' + (minutes_seconds.seconds > 1 ? 's' : '');
+			verbose[verbose.length] = minutes_seconds.seconds + second_noun;
+
+			if (!short_stop) {
+				short_phrase = minutes_seconds.seconds + second_noun;
+				short_stop = true;
+			};
+		};
+
+		if (seconds_milliseconds.milliseconds > 0) {
+			var millisecond_noun = ' millisecond' + (seconds_milliseconds.milliseconds > 1 ? 's' : '');
+			verbose[verbose.length] = seconds_milliseconds.milliseconds + millisecond_noun;
+
+			if (!short_stop) {
+				short_phrase = 'less than 1 second';
+				short_stop = true;
+			};
 		};
 
 		if (is_positive) {
-			working[working.length] = 'ago';
+			suffix = 'ago';
 		} else {
-			working[working.length] = 'in the future';
+			suffix = 'in the future';
 		};
 
+		verbose[verbose.length] = suffix;
+
 		return {
-			friendly: working.join(' '),
+			verbose: verbose.join(' '),
+			concise: __.sprintf('%s %s', short_phrase, suffix),
 			positive: is_positive,
 			days: days_hours.days,
 			hours: days_hours.hours,
