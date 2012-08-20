@@ -29,6 +29,15 @@
 		return n < 2 ? n : __.fibonacci(n - 1) + __.fibonacci(n - 2);
 	});
 
+	// adapted from: http://javascriptweblog.wordpress.com/2011/08/08/fixing-the-javascript-typeof-operator/
+	__.getType = (function(obj) {
+		var class_regex = /\s([a-zA-Z]+)/;
+
+		return function(obj){
+			return ({}).toString.call(obj).match(class_regex)[1].toLowerCase();
+		};
+	})();
+
 	// adapted from: http://stackoverflow.com/questions/901115/get-querystring-values-with-jquery/2880929#2880929
 	__.queryParams = (function gatherQueryParams () {
 		var working = {};
@@ -81,6 +90,25 @@
 		cssNode.href = cssfilename;
 		cssNode.media = 'all';
 		document.getElementsByTagName('head')[0].appendChild(cssNode);
+	};
+
+	__.addStyle = function addStyle (rules) {
+		if (rules && rules.length > 0) {
+			var head = document.getElementsByTagName('head')[0];
+			var style_element = document.createElement('style');
+			style_element.type = 'text/css';
+
+			if (style_element.styleSheet) {
+				style_element.styleSheet.cssText = rules.join('\n');
+			} else {
+				style_element.appendChild(document.createTextNode(rules.join('\n')));
+			};
+
+			head.appendChild(style_element);
+			return style_element;
+		} else {
+			return null;
+		};
 	};
 
 	__.addJS = function addJS (url, callback) {
@@ -676,6 +704,7 @@
 		self.list = [];
 		self.args = [];
 		self.pos = 0;
+		self.end_time = self.time_delta = self.start_time = null;
 	};
 
 	__.Queue.prototype = new __.SharedMethods();
@@ -692,8 +721,11 @@
 		var self = this;
 
 		if (self.pos === 0) {
+			self.start_time = new Date();
 			self.fire('start');
 		} else if (self.pos >= self.list.length) {
+			self.end_time = new Date();
+			self.time_delta = self.end_time - self.start_time;
 			self.fire('end');
 			return;
 		} else {
