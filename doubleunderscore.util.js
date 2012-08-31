@@ -6,7 +6,7 @@
 	var previousDoubleUnderscore = root.__;
 	root['__'] = __;
 
-	__.version = 20120810;
+	__.version = 20120831;
 
 	__.noConflict = function(){
 		root.__ = previousDoubleUnderscore;
@@ -82,6 +82,39 @@
 	__.x = w.innerWidth || e.clientWidth || g.clientWidth;
 	__.y = w.innerHeight || e.clientHeight || g.clientHeight;
 
+	// add generic onLoad events for images and scripts
+	__.onLoad = function (element, callback, timeout) {
+		var done = false;
+
+		if (__.getType(callback) === 'function') {
+			element.onload = element.onreadystatechange = function(){
+				if (!done && (!this.readyState || this.readyState === 'loaded' || this.readyState === 'complete')) {
+					done = true;
+
+					// Handle memory leak in IE
+					element.onload = element.onreadystatechange = null;
+					callback(this);
+				};
+			};
+
+			if (timeout) {
+				element.timer = setTimeout(function(){ callback(element); }, timeout);
+			};
+		};
+
+		return element;
+	};
+
+	__.clearOnLoad = function (element) {
+		element.onload = element.onreadystatechange = null;
+		if (element.timer) {
+			clearTimeout(element.timer);
+			element.timer = null;
+		};
+
+		return element;
+	};
+
 	// adapted from: http://www.hunlock.com/blogs/Totally_Pwn_CSS_with_Javascript
 	__.addCSS = function addCSS (cssfilename) {
 		var cssNode = document.createElement('link');
@@ -112,29 +145,27 @@
 	};
 
 	__.addJS = function addJS (url, callback) {
-		var newScript = document.createElement('script');
+		var newScript = __.onLoad(document.createElement('script'), callback);
 		newScript.type = 'text/javascript';
 		newScript.async = true;
-		var done = false;
-
-		if (callback) {
-			newScript.onload = newScript.onreadystatechange = function(){
-				if (!done && (!this.readyState || this.readyState === 'loaded' || this.readyState === 'complete')) {
-					done = true;
-
-					// Handle memory leak in IE
-					newScript.onload = newScript.onreadystatechange = null;
-					callback(this);
-				};
-			};
-		};
-
 		newScript.src = url;
 		var s = document.getElementsByTagName('script')[0];
 		s.parentNode.insertBefore(newScript, s);
 	};
 
-	// converts arrays of 2-property objects into single object: [{ name: 'a', value: 1 }, { name: 'b', value: 2 }] => { a: 1, b: 2 } 
+	__.addImage = function (url, callback, tracking, timeout) {
+		var newImage = __.onLoad(document.createElement('img'), callback, timeout);
+		newImage.src = url;
+
+		if (tracking) {
+			newImage.style.display = 'none';
+			document.getElementsByTagName('body')[0].appendChild(newImage);
+		};
+
+		return newImage;
+	};
+
+	// converts arrays of 2-property objects into single object: [{ name: 'a', value: 1 }, { name: 'b', value: 2 }] => { a: 1, b: 2 }
 	__.dict = function dict (array) {
 		var counter = array.length, response = {};
 		while (counter--) {
@@ -160,8 +191,8 @@
 	};
 
 	// port of Kohana's Arr::path for JavaScript objects
-	__.path = function path (obj, pathstr, default_value) {
-		var properties = pathstr.split('.');
+	__.path = (function(){
+		var properties = [], default_value = undefined;
 
 		function dive (point, index) {
 			var prop_name = properties[index];
@@ -181,8 +212,11 @@
 			};
 		};
 
-		return dive(obj, 0);
-	};
+		return function(obj, pathstr, dv) {
+			properties = pathstr.split('.'), default_value = dv;
+			return dive(obj, 0);
+		};
+	})();
 
 	// adapted from: http://ejohn.org/projects/flexible-javascript-events/
 	__.addEvent = function addEvent (element, type, callback) {
@@ -367,7 +401,7 @@
 	__.strftime = (function() {
 		function words(s) { return (s || '').split(' '); };
 
-		var DefaultLocale = { 
+		var DefaultLocale = {
 			days: words('Sunday Monday Tuesday Wednesday Thursday Friday Saturday'),
 			shortDays: words('Sun Mon Tue Wed Thu Fri Sat'),
 			months: words('January February March April May June July August September October November December'),
@@ -734,6 +768,164 @@
 
 		self.pos++;
 		self.list[self.pos-1].apply(self, self.args[self.pos-1]);
+	};
+
+	__.Poll = function Poll (interval) {
+		var self = this;
+
+		self.active = false;
+		self.timer = null;
+		self.counter = 0;
+		self.interval = interval || 0;
+
+		self.subscriptions = {
+			start: [],
+			loop: [],
+			stop: []
+		};
+	};
+
+	__.Poll.prototype = new __.SharedMethods();
+
+	__.Poll.prototype.start = function () {
+		var self = this;
+
+		self.active = true;
+		self.fire('start');
+		self.loop();
+	};
+
+	__.Poll.prototype.stop = function () {
+		var self = this;
+
+		self.fire('stop');
+		self.active = false;
+		clearTimeout(self.timer);
+	};
+
+	__.Poll.prototype.loop = function (delay) {
+		var self = this;
+
+		if (self.active) {
+			if (delay) {
+				self.timer = setTimeout(function(){
+					self.timer = null;
+					self.counter++;
+					self.fire('loop');
+				}, delay);
+			} else if (self.interval > 0) {
+				if (self.timer) {
+					self.counter++;
+					self.fire('loop');
+				};
+
+				self.timer = setTimeout(function(){ self.loop(); }, self.interval);
+			} else {
+				self.counter++;
+				self.fire('loop');
+			};
+		};
+	};
+
+	__.Animation = function Animation (params) {
+		var self = this;
+
+		var defaults = {
+			start: null,
+			stop: null,
+			values: [[0, 0]], // [[0, 100], [25, 75, 'easeIn']]
+			frames: 0,
+			easing: 'linear',
+			interval: 0,
+			duration: 0,
+			frames_second: 77
+		};
+
+		_.extend(self.options = {}, defaults, params);
+
+		self.subscriptions = {
+			start: [],
+			stop: [],
+			frame: []
+		};
+
+		if (self.options.frames && self.options.interval) {
+			self.total_frames = self.options.frames;
+			self.poll = new __.Poll(self.options.interval);
+		} else {
+			self.total_frames = Math.ceil(self.options.frames_second * self.options.duration / 1000)
+			self.poll = new __.Poll(Math.ceil(1000 / self.options.frames_second));
+		};
+
+		if (__.getType(self.options.start) === 'number' && __.getType(self.options.stop) === 'number') {
+			self.values = [[self.options.start, self.options.stop]];
+		} else {
+			self.values = self.options.values;
+		};
+
+		self.reset();
+
+		self.poll.on('loop', function(){
+			if (self.active && self.current_frame < self.total_frames) {
+				self.current_frame++;
+				self.fire.apply(self, ['frame'].concat(self.getFrameValues(self.values, self.current_frame)));
+			} else {
+				self.stop();
+			};
+		});
+	};
+
+	__.Animation.prototype = new __.SharedMethods();
+
+	__.Animation.prototype.easings = {
+		'linear': function(time, total) { return Math.pow(time/total, 1); },
+		'easeIn': function(time, total) { return Math.pow(time/total, 3); },
+		'easeOut': function(time, total) { return 1 - Math.pow(1 - (time/total), 3); }
+	};
+
+	__.Animation.prototype.getFrameValues = function (values, frame) {
+		var self = this;
+
+		var counter = 0, limit = values.length, frame_values = [];
+		while (counter < limit) {
+			var current = values[counter];
+			var easing = current[2] || self.options.easing;
+
+			frame_values[frame_values.length] = current[0] + (current[1] - current[0]) * self.easings[easing](frame, self.total_frames);
+			counter++;
+		};
+
+		return frame_values;
+	};
+
+	__.Animation.prototype.start = function () {
+		var self = this;
+
+		if (!self.active) {
+			self.active = true;
+			self.start_time = new Date();
+			self.fire('start');
+
+			self.poll.start();
+		};
+	};
+
+	__.Animation.prototype.stop = function() {
+		var self = this;
+
+		self.stop_time = new Date();
+		self.run_time = self.stop_time - self.start_time;
+		self.active = false;
+		self.poll.stop();
+		self.fire('stop');
+		self.reset();
+	};
+
+	__.Animation.prototype.reset = function() {
+		var self = this;
+
+		self.active = false;
+		self.current_frame = 0;
 	};
 
 }).call(this);
