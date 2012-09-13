@@ -1,12 +1,15 @@
 // doubleunderscore, many functions adapted by Kris Cost
 // depends on: underscore.js
+
+var start = new Date();
+
 (function(){
 	var root = this;
 	var __ = function __ (){};
 	var previousDoubleUnderscore = root.__;
 	root['__'] = __;
 
-	__.version = 20120831;
+	__.version = 20120912;
 
 	__.noConflict = function(){
 		root.__ = previousDoubleUnderscore;
@@ -192,9 +195,7 @@
 
 	// port of Kohana's Arr::path for JavaScript objects
 	__.path = (function(){
-		var properties = [], default_value = undefined;
-
-		function dive (point, index) {
+		function dive (point, index, properties, default_value) {
 			var prop_name = properties[index];
 
 			try {
@@ -202,7 +203,7 @@
 					if (index === properties.length-1) {
 						return point[prop_name];
 					} else {
-						return dive(point[prop_name], ++index);
+						return dive(point[prop_name], ++index, properties, default_value);
 					};
 				} else {
 					return default_value;
@@ -213,8 +214,7 @@
 		};
 
 		return function(obj, pathstr, dv) {
-			properties = pathstr.split('.'), default_value = dv;
-			return dive(obj, 0);
+			return dive(obj, 0, pathstr.split('.'), dv);
 		};
 	})();
 
@@ -664,7 +664,7 @@
 
 	// shared prototype methods
 
-	__.SharedMethods = function(){};
+	__.SharedMethods = function SharedMethods (){};
 
 	__.SharedMethods.prototype.on = function on (eventname, callback, once) {
 		var self = this;
@@ -700,7 +700,7 @@
 
 	// utility constructors
 
-	__.SerialManager = function (max, callback) {
+	__.SerialManager = function SerialManager (max, callback) {
 		var self = this;
 
 		self.max = max;
@@ -790,21 +790,27 @@
 	__.Poll.prototype.start = function () {
 		var self = this;
 
-		self.active = true;
-		self.fire('start');
-		self.loop();
+		if (!self.active) {
+			self.active = true;
+			self.fire('start');
+			self.loop();
+		};
 	};
 
 	__.Poll.prototype.stop = function () {
 		var self = this;
 
-		self.fire('stop');
 		self.active = false;
-		clearTimeout(self.timer);
+		self.fire('stop');
 	};
 
 	__.Poll.prototype.loop = function (delay) {
 		var self = this;
+
+		if (self.timer) {
+			clearTimeout(self.timer);
+			self.timer = null;
+		};
 
 		if (self.active) {
 			if (delay) {
@@ -814,12 +820,16 @@
 					self.fire('loop');
 				}, delay);
 			} else if (self.interval > 0) {
-				if (self.timer) {
-					self.counter++;
-					self.fire('loop');
-				};
+				self.timer = setTimeout(function(){
+					if (self.active) {
+						self.counter++;
+						self.fire('loop');
 
-				self.timer = setTimeout(function(){ self.loop(); }, self.interval);
+						if (self.active) {
+							self.loop();
+						};
+					};
+				}, self.interval);
 			} else {
 				self.counter++;
 				self.fire('loop');
@@ -845,7 +855,8 @@
 
 		self.subscriptions = {
 			start: [],
-			stop: [],
+			complete: [],
+			end: [],
 			frame: []
 		};
 
@@ -868,7 +879,12 @@
 		self.poll.on('loop', function(){
 			if (self.active && self.current_frame < self.total_frames) {
 				self.current_frame++;
+
 				self.fire.apply(self, ['frame'].concat(self.getFrameValues(self.values, self.current_frame)));
+
+				if (self.current_frame === self.total_frames) {
+					self.fire('complete');
+				};
 			} else {
 				self.stop();
 			};
@@ -906,6 +922,9 @@
 			self.start_time = new Date();
 			self.fire('start');
 
+			// apply the "starting" position
+			self.fire.apply(self, ['frame'].concat(self.getFrameValues(self.values, 0)));
+
 			self.poll.start();
 		};
 	};
@@ -915,17 +934,224 @@
 
 		self.stop_time = new Date();
 		self.run_time = self.stop_time - self.start_time;
-		self.active = false;
-		self.poll.stop();
-		self.fire('stop');
+
 		self.reset();
+		self.fire('end');
 	};
 
 	__.Animation.prototype.reset = function() {
 		var self = this;
 
 		self.active = false;
+		self.poll.stop();
 		self.current_frame = 0;
 	};
 
+
+	__.Sortable = function Sortable (array, property) {
+		var sortable = this;
+		sortable.array = array || [];
+		sortable.property = property || null;
+	};
+
+	// "internal methods"
+	__.Sortable.prototype._swap = function _swap (a, b) {
+		var tmp = this.array[a];
+		this.array[a] = this.array[b];
+		this.array[b] = tmp;
+	};
+
+	__.Sortable.prototype._partition = function _partition (begin, end, pivot) {
+		var piv = this.array[pivot];
+		this._swap(pivot, end-1);
+
+		var store = begin;
+		var ix = begin;
+
+		while (ix < end-1) {
+			switch (typeof this.array[ix][this.property]) {
+
+			case 'string':
+				if (this.array[ix][this.property].toLowerCase() <= piv[this.property].toLowerCase()) {
+					this._swap(store, ix);
+					++store;
+				}
+			break;
+
+			default:
+				if (this.array[ix][this.property] <= piv[this.property]) {
+					this._swap(store, ix);
+					++store;
+				}
+			break;
+
+			}; // close switch
+
+			ix++;
+		};
+
+		this._swap(end-1, store);
+		return store;
+	};
+
+	__.Sortable.prototype._qsortByObjectProperty = function _qsortByObjectProperty (begin, end) {
+		if (end-1 > begin) {
+			var pivot = begin + Math.floor(Math.random()*(end-begin));
+
+			pivot = this._partition(begin, end, pivot);
+
+			this._qsortByObjectProperty(begin, pivot);
+			this._qsortByObjectProperty(pivot+1, end);
+		};
+	};
+
+	__.Sortable.prototype._mergesortByObjectProperty = function _mergesortByObjectProperty (array) {
+		if (array.length < 2) { return array; };
+		var middle = Math.ceil(array.length/2);
+		return this._merge(this._mergesortByObjectProperty(array.slice(0,middle)), this._mergesortByObjectProperty(array.slice(middle)));
+	};
+
+	__.Sortable.prototype._merge = function _merge (left, right) {
+		var result = new Array();
+
+		while ((left.length > 0) && (right.length > 0)) {
+			if (this._mergeComparison(left[0],right[0]) < 0) { result[result.length] = left.shift(); }
+			else { result[result.length] = right.shift(); };
+		};
+
+		while (left.length > 0) { result[result.length] = left.shift(); };
+		while (right.length > 0) { result[result.length] = right.shift(); };
+		return result;
+	};
+
+	__.Sortable.prototype._mergeComparison = function _mergeComparison (left, right) {
+		if (this.property) {
+			var leftprop = left[this.property];
+			var rightprop = right[this.property];
+		} else {
+			var leftprop = left;
+			var rightprop = right;
+		};
+
+		if (leftprop === null) {
+			var type = 'string';
+		} else {
+			var type = typeof leftprop;
+		};
+
+		switch (type) {
+
+		case 'string':
+			var leftproplower = (leftprop && !this.nsRegex.test(leftprop) ? leftprop.toLowerCase().replace(this.rnsRegex,'') : '\xffff');
+			var rightproplower = (rightprop && !this.nsRegex.test(rightprop) ? rightprop.toLowerCase().replace(this.rnsRegex,'') : '\xffff');
+
+			if (leftproplower == rightproplower) { return 0; }
+			else if (leftproplower < rightproplower) { return -1; }
+			else { return 1; };
+		break;
+
+		default:
+			if (leftprop == rightprop) { return 0; }
+			else if (leftprop < rightprop) { return -1; }
+			else { return 1; };
+		break;
+
+		}; // close switch
+	};
+
+	__.Sortable.prototype.nsRegex = /^\s+$/;
+	__.Sortable.prototype.rnsRegex = /^\s+|\s+$/g;
+
+	// "external" methods
+
+	__.Sortable.prototype.sortBy = function sortBy (type, property) {
+		var self = this, property_to_sort_by = null;
+
+		if (property) {
+			property_to_sort_by = property;
+			self.property = property;
+		} else if (self.property) {
+			property_to_sort_by = self.property;
+		};
+
+		if (property_to_sort_by) {
+			switch (type) {
+			case 'merge':
+				self._mergesortByObjectProperty();
+			break;
+
+			default:
+			case 'qsort':
+				self._qsortByObjectProperty(0, self.array.length);
+			break;
+			};
+		};
+	};
+
+	__.Sortable.prototype.filter = function filter (dict) {
+		var self = this;
+
+		var found_set = [];
+		var row_counter = self.array.length;
+		while (row_counter--) {
+			var current = self.array[row_counter];
+			var flag = true;
+
+			for (key in dict) {
+				if (dict[key] !== current[key]) {
+					flag = false;
+					break;
+				};
+			};
+
+			if (!flag) {
+				continue;
+			} else {
+				found_set[found_set.length] = current;
+			};
+		};
+
+		return found_set;
+	};
+
+	__.Sortable.prototype.search = function search (keywords) {
+		var self = this;
+
+		switch (__.getType(keywords)) {
+		case 'string':
+			var workingkeywords = keywords.match(/\w+/g);
+		break;
+
+		case 'array':
+			var workingkeywords = keywords;
+		break;
+		default:
+			return [];
+		break;
+		};
+
+		var wrapped = _.map(workingkeywords, function(item, index, list) { return __.sprintf('(?=.*?%s)', item); });
+		var kwregex = new RegExp(__.sprintf('^%s.*$', wrapped.join('')), 'i');
+
+		var found_set = [];
+		var row_counter = self.array.length;
+		while (row_counter--) {
+			var current = self.array[row_counter];
+			var blob = [];
+
+			for (key in current) {
+				blob[blob.length] = current[key];
+			};
+
+			if (kwregex.test(blob.join(' '))) {
+				found_set[found_set.length] = current;
+			};
+		};
+
+		return found_set;
+	};
+
 }).call(this);
+
+
+console.log((new Date() - start) + 'ms, doubleunderscore')
