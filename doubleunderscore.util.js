@@ -679,16 +679,17 @@ var start = new Date();
 		};
 
 		self.subscriptions[eventname][self.subscriptions[eventname].length] = callback;
-
-		if (self.global_name) {
-			__.globalevents.on(self.global_name + '_' + eventname, callback, once);
-		};
 	};
 
 	__.SharedMethods.prototype.fire = function fire () {
 		var self = this;
 
 		var args = _.toArray(arguments);
+
+		if (!self.subscriptions.hasOwnProperty(args[0])) {
+			return;
+		};
+
 		var callbacks = self.subscriptions[args[0]];
 
 		var counter = 0, limit = callbacks.length, newlist = [];
@@ -706,12 +707,18 @@ var start = new Date();
 		self.subscriptions[args[0]] = newlist;
 
 		if (self.global_name) {
-			__.globalevents.fire.apply(self, [self.global_name + '_' + args[0]].concat(args.slice(1)));
+			var globalargs = [
+				self.global_name + '_' + args[0],
+				self
+			];
+
+			globalargs.concat(args.slice(1))
+			__.globalevents.fire.apply(__.globalevents, globalargs);
 		};
 	};
 
 	// global events
-	
+
 	__.globalevents = new __.SharedMethods();
 
 	// utility constructors
@@ -971,6 +978,7 @@ var start = new Date();
 	};
 
 	// "internal methods"
+
 	__.Sortable.prototype._swap = function _swap (a, b) {
 		var tmp = this.array[a];
 		this.array[a] = this.array[b];
