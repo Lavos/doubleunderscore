@@ -666,12 +666,22 @@ var start = new Date();
 
 	__.SharedMethods = function SharedMethods (){};
 
+	__.SharedMethods.prototype.subscriptions = [];
+	__.SharedMethods.prototype.global_name = null;
+
 	__.SharedMethods.prototype.on = function on (eventname, callback, once) {
 		var self = this;
 
-		if (self.subscriptions.hasOwnProperty(eventname)) {
-			callback.once = once || false;
-			self.subscriptions[eventname][self.subscriptions[eventname].length] = callback;
+		callback.once = once || false;
+
+		if (!self.subscriptions.hasOwnProperty(eventname)) {
+			self.subscriptions[eventname] = [];
+		};
+
+		self.subscriptions[eventname][self.subscriptions[eventname].length] = callback;
+
+		if (self.global_name) {
+			__.globalevents.on(self.global_name + '_' + eventname, callback, once);
 		};
 	};
 
@@ -694,9 +704,15 @@ var start = new Date();
 		};
 
 		self.subscriptions[args[0]] = newlist;
+
+		if (self.global_name) {
+			__.globalevents.fire.apply(self, [self.global_name + '_' + args[0]].concat(args.slice(1)));
+		};
 	};
 
-
+	// global events
+	
+	__.globalevents = new __.SharedMethods();
 
 	// utility constructors
 
