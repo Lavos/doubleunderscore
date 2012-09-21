@@ -1,15 +1,15 @@
 // doubleunderscore, many functions adapted by Kris Cost
 // depends on: underscore.js
 
-var start = new Date();
-
 (function(){
+	var start_time = new Date();
+
 	var root = this;
 	var __ = function __ (){};
 	var previousDoubleUnderscore = root.__;
 	root['__'] = __;
 
-	__.version = 20120912;
+	__.version = 20120918;
 
 	__.noConflict = function(){
 		root.__ = previousDoubleUnderscore;
@@ -253,13 +253,14 @@ var start = new Date();
 		__.addEvent(document, 'mousemove', userActionFunction);
 
 		function userActionFunction () {
+			__.removeEvent(document, 'mousemove', userActionFunction);
+
 			if (timer) {
 				clearTimeout(timer);
 				timer = null;
 			};
 
 			callback();
-			__.removeEvent(document, 'mousemove', userActionFunction);
 		};
 	};
 
@@ -1175,7 +1176,5 @@ var start = new Date();
 		return found_set;
 	};
 
+	__.eval_time = new Date() - start_time;
 }).call(this);
-
-
-console.log((new Date() - start) + 'ms, doubleunderscore')
