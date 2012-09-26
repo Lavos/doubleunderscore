@@ -32,6 +32,31 @@
 		return n < 2 ? n : __.fibonacci(n - 1) + __.fibonacci(n - 2);
 	});
 
+	// port of Kohana's Arr::path for JavaScript objects
+	__.path = (function(){
+		function dive (point, index, properties, default_value) {
+			var prop_name = properties[index];
+
+			try {
+				if (typeof point[prop_name] !== 'undefined') {
+					if (index === properties.length-1) {
+						return point[prop_name];
+					} else {
+						return dive(point[prop_name], ++index, properties, default_value);
+					};
+				} else {
+					return default_value;
+				};
+			} catch (e) {
+				return default_value;
+			};
+		};
+
+		return function(obj, pathstr, dv) {
+			return dive(obj, 0, pathstr.split('.'), dv);
+		};
+	})();
+
 	// adapted from: http://javascriptweblog.wordpress.com/2011/08/08/fixing-the-javascript-typeof-operator/
 	__.getType = (function(obj) {
 		var class_regex = /\s([a-zA-Z]+)/;
@@ -81,9 +106,14 @@
 	};
 
 	// standardized browser window dimensions
-	var w = window, d = document, e = d.documentElement, g = d.getElementsByTagName('body')[0];
-	__.x = w.innerWidth || e.clientWidth || g.clientWidth;
-	__.y = w.innerHeight || e.clientHeight || g.clientHeight;
+	__.dims = function dims () {
+		var w = window, d = document, e = d.documentElement, g = d.getElementsByTagName('body')[0];
+
+		return {
+			x: w.innerWidth || e.clientWidth || __.path(g, 'clientWidth', 0),
+			y: w.innerHeight || e.clientHeight || __.path(g, 'clientHeight', 0)
+		};
+	};
 
 	// add generic onLoad events for images and scripts
 	__.onLoad = function (element, callback, timeout) {
@@ -193,30 +223,6 @@
 		};
 	};
 
-	// port of Kohana's Arr::path for JavaScript objects
-	__.path = (function(){
-		function dive (point, index, properties, default_value) {
-			var prop_name = properties[index];
-
-			try {
-				if (typeof point[prop_name] !== 'undefined') {
-					if (index === properties.length-1) {
-						return point[prop_name];
-					} else {
-						return dive(point[prop_name], ++index, properties, default_value);
-					};
-				} else {
-					return default_value;
-				};
-			} catch (e) {
-				return default_value;
-			};
-		};
-
-		return function(obj, pathstr, dv) {
-			return dive(obj, 0, pathstr.split('.'), dv);
-		};
-	})();
 
 	// adapted from: http://ejohn.org/projects/flexible-javascript-events/
 	__.addEvent = function addEvent (element, type, callback) {
@@ -667,7 +673,7 @@
 
 	__.SharedMethods = function SharedMethods (){};
 
-	__.SharedMethods.prototype.subscriptions = [];
+	__.SharedMethods.prototype.subscriptions = {};
 	__.SharedMethods.prototype.global_name = null;
 
 	__.SharedMethods.prototype.on = function on (eventname, callback, once) {
