@@ -9,7 +9,7 @@
 	var previousDoubleUnderscore = root.__;
 	root['__'] = __;
 
-	__.version = 20120918;
+	__.version = 20120926;
 
 	__.noConflict = function(){
 		root.__ = previousDoubleUnderscore;
@@ -114,6 +114,22 @@
 			y: w.innerHeight || e.clientHeight || __.path(g, 'clientHeight', 0)
 		};
 	};
+
+	// html entity encoding
+	__.escapeHTML = (function(){
+		var escapeChars = {
+			'<': '&lt;',
+			'>': '&gt;',
+			'"': '&quot;',
+			"'": '&apos;',
+			'&': '&amp;'
+		};
+
+		return function(str) {
+			if (str == null) return '';
+			return String(str).replace(/[&<>"']/g, function(m){ return escapeChars[m]; });
+		};
+	})();
 
 	// add generic onLoad events for images and scripts
 	__.onLoad = function (element, callback, timeout) {

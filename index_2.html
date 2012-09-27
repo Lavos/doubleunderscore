@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en-US">
+
+<head>
+	<title></title>
+	<meta charset="UTF-8"/>
+
+	<style type="text/css">
+		.anim { background-color: red; height: 25px; width: 25px; position: absolute; left: 200px; }
+		#holder { background-color: #efefef; width: 100px; position: relative; height: 500px; }
+	</style>
+
+	<script type="text/javascript" src="underscore.js"></script>
+	<script type="text/javascript" src="doubleunderscore.util.js"></script>
+</head>
+
+<body id="bodyid">
+	<ul>
+		<li>Test</li>
+		<li id="counter"></li>
+		<li id="counternum"></li>
+	</ul>
+
+	<script type="text/javascript">
+		__.onUserAction(function(){ console.log('javascript!'); });
+
+		__.addEvent(document.getElementById('bodyid'), 'click', function(){
+			console.log(__.x);
+		});
+	</script>
+</body>
+</html>
