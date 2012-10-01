@@ -9,7 +9,7 @@
 	var previousDoubleUnderscore = root.__;
 	root['__'] = __;
 
-	__.version = 20120926;
+	__.version = 20121001;
 
 	__.noConflict = function(){
 		root.__ = previousDoubleUnderscore;
@@ -687,10 +687,10 @@
 
 	// shared prototype methods
 
-	__.SharedMethods = function SharedMethods (){};
-
-	__.SharedMethods.prototype.subscriptions = {};
-	__.SharedMethods.prototype.global_name = null;
+	__.SharedMethods = function SharedMethods (){
+		this.subscriptions = {};
+		this.global_name = null;
+	};
 
 	__.SharedMethods.prototype.on = function on (eventname, callback, once) {
 		var self = this;
@@ -735,7 +735,7 @@
 				self
 			];
 
-			globalargs.concat(args.slice(1))
+			globalargs.concat(args.slice(1));
 			__.globalevents.fire.apply(__.globalevents, globalargs);
 		};
 	};
