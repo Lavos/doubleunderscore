@@ -704,16 +704,8 @@
 		self.subscriptions[eventname][self.subscriptions[eventname].length] = callback;
 	};
 
-	__.SharedMethods.prototype.fire = function fire () {
+	__.SharedMethods.prototype._doCallbacks = function _doCallbacks (callbacks, args) {
 		var self = this;
-
-		var args = _.toArray(arguments);
-
-		if (!self.subscriptions.hasOwnProperty(args[0])) {
-			return;
-		};
-
-		var callbacks = self.subscriptions[args[0]];
 
 		var counter = 0, limit = callbacks.length, newlist = [];
 		while (counter < limit) {
@@ -728,6 +720,20 @@
 		};
 
 		self.subscriptions[args[0]] = newlist;
+	};
+
+	__.SharedMethods.prototype.fire = function fire () {
+		var self = this;
+
+		var args = _.toArray(arguments);
+
+		if (self.subscriptions.hasOwnProperty('debug')) {
+			self._doCallbacks(self.subscriptions['debug'], ['debug'].concat(args));
+		};
+
+		if (self.subscriptions.hasOwnProperty(args[0])) {
+			self._doCallbacks(self.subscriptions[args[0]], args);
+		};
 
 		if (self.global_name) {
 			var globalargs = [
