@@ -24,6 +24,20 @@
 		return array[__.getRandomInt(0, array.length-1)];
 	};
 
+	__.deleteIndex = function deleteIndex (array, index) {
+		var counter = 0, limit = array.length, new_array = [];
+
+		while (counter < limit) {
+			if (counter !== index) {
+				new_array[new_array.length] = array[counter];
+			};
+
+			counter++;
+		};
+
+		return new_array;
+	};
+
 	__.check = function check (value) {
 		return !(value === null || value === void 0 || value === '' || value === [] || value === false);
 	};
@@ -736,12 +750,7 @@
 		};
 
 		if (self.global_name) {
-			var globalargs = [
-				self.global_name + '_' + args[0],
-				self
-			];
-
-			globalargs.concat(args.slice(1));
+			var globalargs = [self.global_name + '_' + args[0], self].concat(args.slice(1));
 			__.globalevents.fire.apply(__.globalevents, globalargs);
 		};
 	};
