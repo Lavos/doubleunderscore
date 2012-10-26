@@ -716,6 +716,24 @@
 		};
 
 		self.subscriptions[eventname][self.subscriptions[eventname].length] = callback;
+		return [eventname, callback];
+	};
+
+	__.SharedMethods.prototype.off = function off (handle) {
+		var self = this;
+
+		var eventname = handle[0], func = handle[1];
+
+		if (self.subscriptions.hasOwnProperty(eventname)) {
+			var callbacks = self.subscriptions[eventname];
+
+			var counter = callbacks.length;
+			while (counter--) {
+				if (callbacks[counter] === func) {
+					self.subscriptions[eventname] = __.deleteIndex(counter);
+				};
+			};
+		};
 	};
 
 	__.SharedMethods.prototype._doCallbacks = function _doCallbacks (callbacks, args) {
