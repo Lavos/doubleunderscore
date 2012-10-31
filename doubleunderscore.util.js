@@ -24,20 +24,6 @@
 		return array[__.getRandomInt(0, array.length-1)];
 	};
 
-	__.deleteIndex = function deleteIndex (array, index) {
-		var counter = 0, limit = array.length, new_array = [];
-
-		while (counter < limit) {
-			if (counter !== index) {
-				new_array[new_array.length] = array[counter];
-			};
-
-			counter++;
-		};
-
-		return new_array;
-	};
-
 	__.check = function check (value) {
 		return !(value === null || value === void 0 || value === '' || value === [] || value === false);
 	};
@@ -129,39 +115,26 @@
 		};
 	};
 
-	// html entity encoding
-	__.escapeHTML = (function(){
-		var escapeChars = {
-			'<': '&lt;',
-			'>': '&gt;',
-			'"': '&quot;',
-			"'": '&apos;',
-			'&': '&amp;'
-		};
-
-		return function(str) {
-			if (str == null) return '';
-			return String(str).replace(/[&<>"']/g, function(m){ return escapeChars[m]; });
-		};
-	})();
-
 	// add generic onLoad events for images and scripts
 	__.onLoad = function (element, callback, timeout) {
 		var done = false;
 
 		if (__.getType(callback) === 'function') {
-			element.onload = element.onreadystatechange = function(){
-				if (!done && (!this.readyState || this.readyState === 'loaded' || this.readyState === 'complete')) {
+			function handler (override) {
+				if (override || (!done && (!this.readyState || this.readyState === 'loaded' || this.readyState === 'complete'))) {
 					done = true;
 
-					// Handle memory leak in IE
-					element.onload = element.onreadystatechange = null;
 					callback(this);
+					__.clearOnLoad(this);
 				};
 			};
 
+			element.onload = element.onreadystatechange = handler;
+
 			if (timeout) {
-				element.timer = setTimeout(function(){ callback(element); }, timeout);
+				element.timer = setTimeout(function(){
+					handler(true);
+				}, timeout);
 			};
 		};
 
@@ -354,12 +327,24 @@
 		var minutes_seconds = __.divmod(seconds_milliseconds.seconds, 60, 'minutes', 'seconds');
 		var hours_minutes = __.divmod(minutes_seconds.minutes, 60, 'hours', 'minutes');
 		var days_hours = __.divmod(hours_minutes.hours, 24, 'days', 'hours');
+		var years_days = __.divmod(days_hours.days, 365, 'years', 'days');
 
 		var verbose = [], suffix = '', short_phrase = '', short_stop = false;
-		if (days_hours.days > 0) {
-			var day_noun =  ' day' + (days_hours.days > 1 ? 's' : '');
-			short_phrase = verbose[verbose.length] = days_hours.days + day_noun;
+
+		if (years_days.years > 0) {
+			var years_noun =  ' year' + (years_days.years > 1 ? 's' : '');
+			short_phrase = verbose[verbose.length] = years_days.years + years_noun;
 			short_stop = true;
+		};
+
+		if (years_days.days > 0) {
+			var day_noun =  ' day' + (years_days.days > 1 ? 's' : '');
+			verbose[verbose.length] = years_days.days + day_noun;
+
+			if (!short_stop) {
+				short_phrase = days_hours.hours + hour_noun;
+				short_stop = true;
+			};
 		};
 
 		if (days_hours.hours > 0) {
@@ -414,7 +399,8 @@
 			verbose: verbose.join(' '),
 			concise: __.sprintf('%s %s', short_phrase, suffix),
 			positive: is_positive,
-			days: days_hours.days,
+			years: years_days.years,
+			days: years_days.days,
 			hours: days_hours.hours,
 			minutes: hours_minutes.minutes,
 			seconds: minutes_seconds.seconds,
@@ -699,27 +685,48 @@
 		return __.sprintf.apply(null, argv);
 	};
 
-	// shared prototype methods
 
-	__.SharedMethods = function SharedMethods (){
-		this.subscriptions = {};
-		this.global_name = null;
-	};
 
-	__.SharedMethods.prototype.on = function on (eventname, callback, once) {
+	// Publish Subscribe Pattern, formerly SharedMethods
+	// usage:
+	// 	1) __.augment(MyNewConstructor, __.PubSubPattern);
+	// 	2) MyNewConstructor.prototype = new __.PubSubPattern();
+	// 	n) there's other ways...
+
+	__.SharedMethods = __.PubSubPattern = function PubSubPattern (){};
+
+	__.PubSubPattern.prototype.once = function once (eventname, callback) {
 		var self = this;
 
-		callback.once = once || false;
+		function wrappedHandler () {
+			callback.apply(self, arguments);
+			self.off([eventname, wrappedHandler]);
+		};
+
+		return self.on(eventname, wrappedHandler);
+	};
+
+	__.PubSubPattern.prototype.on = function on (eventname, callback, once) {
+		var self = this;
+
+		// It is recommended that your object have a subscriptions object for self-documentation, but the code will detect if you don't and add one.
+		if (!self.hasOwnProperty('subscriptions')) {
+			self.subscriptions = {};
+		};
+
+		if (once) {
+			return self.once(eventname, callback);
+		};
 
 		if (!self.subscriptions.hasOwnProperty(eventname)) {
 			self.subscriptions[eventname] = [];
 		};
 
 		self.subscriptions[eventname][self.subscriptions[eventname].length] = callback;
-		return [eventname, callback];
+		return [eventname, callback]; // handle
 	};
 
-	__.SharedMethods.prototype.off = function off (handle) {
+	__.PubSubPattern.prototype.off = function off (handle) {
 		var self = this;
 
 		var eventname = handle[0], func = handle[1];
@@ -730,31 +737,23 @@
 			var counter = callbacks.length;
 			while (counter--) {
 				if (callbacks[counter] === func) {
-					self.subscriptions[eventname] = __.deleteIndex(counter);
+					self.subscriptions[eventname].splice(counter, 1);
 				};
 			};
 		};
 	};
 
-	__.SharedMethods.prototype._doCallbacks = function _doCallbacks (callbacks, args) {
+	__.PubSubPattern.prototype._doCallbacks = function _doCallbacks (callbacks, args) {
 		var self = this;
 
-		var counter = 0, limit = callbacks.length, newlist = [];
+		var counter = 0, limit = callbacks.length;
 		while (counter < limit) {
-			var callback = callbacks[counter];
-			callback.apply(self, args.slice(1));
-
-			if (!callback.once) {
-				newlist[newlist.length] = callback;
-			};
-
+			callbacks[counter].apply(self, args.slice(1));
 			counter++;
 		};
-
-		self.subscriptions[args[0]] = newlist;
 	};
 
-	__.SharedMethods.prototype.fire = function fire () {
+	__.PubSubPattern.prototype.fire = function fire () {
 		var self = this;
 
 		var args = _.toArray(arguments);
@@ -775,7 +774,7 @@
 
 	// global events
 
-	__.globalevents = new __.SharedMethods();
+	__.globalevents = new __.PubSubPattern();
 
 	// utility constructors
 
@@ -820,7 +819,7 @@
 		self.end_time = self.time_delta = self.start_time = null;
 	};
 
-	__.Queue.prototype = new __.SharedMethods();
+	__.augment(__.Queue, __.PubSubPattern);
 
 	__.Queue.prototype.add = function add () {
 		var self = this;
@@ -864,7 +863,7 @@
 		};
 	};
 
-	__.Poll.prototype = new __.SharedMethods();
+	__.augment(__.Poll, __.PubSubPattern);
 
 	__.Poll.prototype.start = function () {
 		var self = this;
@@ -970,7 +969,7 @@
 		});
 	};
 
-	__.Animation.prototype = new __.SharedMethods();
+	__.augment(__.Animation, __.PubSubPattern);
 
 	__.Animation.prototype.easings = {
 		'linear': function(time, total) { return Math.pow(time/total, 1); },
