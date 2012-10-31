@@ -9,7 +9,7 @@
 	var previousDoubleUnderscore = root.__;
 	root['__'] = __;
 
-	__.version = 20121001;
+	__.version = 20121030;
 
 	__.noConflict = function(){
 		root.__ = previousDoubleUnderscore;
