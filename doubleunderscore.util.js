@@ -57,6 +57,30 @@
 		};
 	})();
 
+	// define objects along a dot-delimited path
+	// ie: var myObj = {}; __.definePath(myObj, 'a.b.c', 123); // makes myObj: { a: { b: { c: 123 } } }
+	__.definePath = function (source, pathstr, destination_value) {
+		var node = source,
+		points = pathstr ? pathstr.split('.') : [],
+		counter = 0,
+		limit = points.length;
+
+		while (counter < limit) {
+			var part = points[counter];
+			var nso = node[part];
+
+			if (!nso) {
+				nso = (destination_value && counter + 1 === limit) ? destination_value : {};
+				node[part] = nso;
+			};
+
+			node = nso;
+			counter++;
+		};
+
+		return node;
+	};
+
 	// adapted from: http://javascriptweblog.wordpress.com/2011/08/08/fixing-the-javascript-typeof-operator/
 	__.getType = (function(obj) {
 		var class_regex = /\s([a-zA-Z]+)/;
@@ -776,6 +800,22 @@
 
 	__.globalevents = new __.PubSubPattern();
 
+
+	// create Modular Namespaces
+	// uses provide to extend additional functionality via plugins
+	// Example usage, plugins can be processed in any order:
+	// (function(){ this.provide('test.two', 'abc'); }).call(this['NameSpace'] = this['NameSpace'] || new __.ModularNamespace());
+	// NameSpace.test.two === 'abc'; // true
+
+	__.ModularNamespace = function ModularNamespace (){};
+
+	__.ModularNamespace.prototype.provide = function (attachment_point_string, source) {
+		var self = this;
+
+		__.definePath(self, attachment_point_string, source);
+	};
+
+
 	// utility constructors
 
 	__.SerialManager = function SerialManager (max, callback) {
@@ -848,13 +888,14 @@
 		self.list[self.pos-1].apply(self, self.args[self.pos-1]);
 	};
 
-	__.Poll = function Poll (interval) {
+	__.Poll = function Poll (interval_duration) {
 		var self = this;
 
 		self.active = false;
 		self.timer = null;
+		self.interval = null;
 		self.counter = 0;
-		self.interval = interval || 0;
+		self.interval_duration = interval_duration || 0;
 
 		self.subscriptions = {
 			start: [],
@@ -897,17 +938,16 @@
 					self.counter++;
 					self.fire('loop');
 				}, delay);
-			} else if (self.interval > 0) {
-				self.timer = setTimeout(function(){
+			} else if (self.interval_duration > 0 && self.interval === null) {
+				self.interval = setInterval(function(){
 					if (self.active) {
 						self.counter++;
 						self.fire('loop');
-
-						if (self.active) {
-							self.loop();
-						};
+					} else {
+						clearInterval(self.interval);
+						self.interval = null;
 					};
-				}, self.interval);
+				}, self.interval_duration);
 			} else {
 				self.counter++;
 				self.fire('loop');
