@@ -1,15 +1,36 @@
 // doubleunderscore, many functions adapted by Kris Cost
-// depends on: underscore.js
-
 (function(){
 	var start_time = new Date();
 
 	var root = this;
 	var __ = function __ (){};
 	var previousDoubleUnderscore = root.__;
-	root['__'] = __;
+	__.version = 20121210;
 
-	__.version = 20121030;
+	__.each = function (obj, iterator) {
+		for (key in obj) {
+			if (obj.hasOwnProperty(key)) {
+				iterator(obj[key], key, obj);
+			};
+		};
+	};
+
+	__.extend = function (obj) {
+		var objects = Array.prototype.slice.call(arguments, 1);
+		var counter = 0, limit = objects.length;
+
+		while (counter < limit) {
+			var current = objects[counter];
+
+			for (var prop in current) {
+				obj[prop] = current[prop];
+			};
+
+			counter++;
+		};
+
+		return obj;
+	};
 
 	__.noConflict = function(){
 		root.__ = previousDoubleUnderscore;
@@ -28,9 +49,18 @@
 		return !(value === null || value === void 0 || value === '' || value === [] || value === false);
 	};
 
-	__.fibonacci = _.memoize(function fibonacci (n) {
-		return n < 2 ? n : __.fibonacci(n - 1) + __.fibonacci(n - 2);
-	});
+	__.parseFilename = (function(){
+		var split_regex = /(.+)\.([^.]+)$/g;
+
+		return function (path) {
+			var matches = split_regex.exec(path);
+
+			return {
+				name: matches[1] || '',
+				extension: matches[2] || ''
+			};
+		};
+	})();
 
 	// port of Kohana's Arr::path for JavaScript objects
 	__.path = (function(){
@@ -106,6 +136,16 @@
 
 		return working;
 	})();
+
+	__.toQueryParams = function toQueryParams (obj) {
+		var working = [];
+
+		__.each(obj, function(value, key, dict){
+			working[working.length] = __.sprintf('%s=%s', encodeURIComponent(key), encodeURIComponent(value));
+		});
+
+		return '?' + working.join('&');
+	};
 
 	__.getMeta = function getMeta (target_document) {
 		var target_document = target_document || document;
@@ -250,6 +290,27 @@
 		};
 	};
 
+	// enables decorators to have init functions
+	__.decorate = function decorate (target_object, decorator) {
+		if (!target_object._DecorationInits) {
+			target_object._DecorationInits = [];
+
+			target_object._applyDecorations = function () {
+				var counter = 0, limit = this._DecorationInits.length;
+				while (counter < limit) {
+					this._DecorationInits[counter].call(this);
+					counter++;
+				};
+			};
+		};
+
+		target_object._DecorationInits.push(decorator.init);
+		for (var methodName in decorator.methods) {
+			target_object[methodName] = decorator.methods[methodName];
+		};
+
+		return target_object;
+	};
 
 	// adapted from: http://ejohn.org/projects/flexible-javascript-events/
 	__.addEvent = function addEvent (element, type, callback) {
@@ -307,7 +368,7 @@
 
 		var template = function template (str, templatesettings) {
 			var c = {};
-			_.extend(c, defaults, templatesettings);
+			__.extend(c, defaults, templatesettings);
 
 			var tmpl = 'var __p=[],print=function(){__p.push.apply(__p,arguments);};' +
 			'__p.push(\'' +
@@ -710,6 +771,29 @@
 	};
 
 
+	// adapted from BackBone's Inherit
+	__.inherits = (function(){
+		var ctor = function(){};
+
+		return function(parent, body) {
+			var body = body || function(){};
+
+			var child = function(){
+				parent.apply(this, arguments);
+				body.apply(this, arguments);
+			};
+
+			__.extend(child, parent);
+
+			ctor.prototype = parent.prototype;
+			child.prototype = new ctor();
+			child.prototype.constructor = child;
+			child.__super__ = parent.prototype;
+
+			return child;
+		};
+	})();
+
 
 	// Publish Subscribe Pattern, formerly SharedMethods
 	// usage:
@@ -718,6 +802,12 @@
 	// 	n) there's other ways...
 
 	__.SharedMethods = __.PubSubPattern = function PubSubPattern (){};
+
+	__.PubSubPattern.prototype.cancelSubscriptions = function cancelSubscriptions () {
+		var self = this;
+
+		self.subscriptions = {};
+	};
 
 	__.PubSubPattern.prototype.once = function once (eventname, callback) {
 		var self = this;
@@ -770,9 +860,10 @@
 	__.PubSubPattern.prototype._doCallbacks = function _doCallbacks (callbacks, args) {
 		var self = this;
 
-		var counter = 0, limit = callbacks.length;
+		var safe_callbacks = callbacks.slice();
+		var counter = 0, limit = safe_callbacks.length;
 		while (counter < limit) {
-			callbacks[counter].apply(self, args.slice(1));
+			safe_callbacks[counter].apply(self, args.slice(1));
 			counter++;
 		};
 	};
@@ -780,7 +871,11 @@
 	__.PubSubPattern.prototype.fire = function fire () {
 		var self = this;
 
-		var args = _.toArray(arguments);
+		var args = Array.prototype.slice.call(arguments);
+
+		if (!self.hasOwnProperty('subscriptions')) {
+			self.subscriptions = {};
+		};
 
 		if (self.subscriptions.hasOwnProperty('debug')) {
 			self._doCallbacks(self.subscriptions['debug'], ['debug'].concat(args));
@@ -825,6 +920,10 @@
 		self.counter = 0;
 		self.callback = callback;
 		self.data = {};
+
+		if (self.max === 0) {
+			self.execute();
+		};
 	};
 
 	__.SerialManager.prototype.bump = function (label, data) {
@@ -840,6 +939,7 @@
 	};
 
 	__.SerialManager.prototype.execute = function (data) {
+		var self = this;
 		self.callback(data);
 	};
 
@@ -864,7 +964,7 @@
 	__.Queue.prototype.add = function add () {
 		var self = this;
 
-		var args = _.toArray(arguments);
+		var args = Array.prototype.slice.call(arguments);
 		self.list[self.list.length] = args[0];
 		self.args[self.args.length] = args.slice(1);
 	};
@@ -969,7 +1069,7 @@
 			frames_second: 77
 		};
 
-		_.extend(self.options = {}, defaults, params);
+		__.extend(self.options = {}, defaults, params);
 
 		self.subscriptions = {
 			start: [],
@@ -1249,7 +1349,12 @@
 		break;
 		};
 
-		var wrapped = _.map(workingkeywords, function(item, index, list) { return __.sprintf('(?=.*?%s)', item); });
+		var wrapped = [], counter = 0, limit = workingkeywords.length;
+		while (counter < limit) {
+			wrapped[wrapped.length] = __.sprintf('(?=.*?%s)', workingkeywords[counter]);
+			counter++;
+		};
+
 		var kwregex = new RegExp(__.sprintf('^%s.*$', wrapped.join('')), 'i');
 
 		var found_set = [];
@@ -1271,4 +1376,10 @@
 	};
 
 	__.eval_time = new Date() - start_time;
+
+	if (typeof window['define'] === 'function' && define.amd) {
+		define('doubleunderscore', function(_){ return __; });
+	} else {
+		root['__'] = __;
+	};
 }).call(this);
