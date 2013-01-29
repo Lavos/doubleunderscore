@@ -179,7 +179,7 @@
 		};
 	};
 
-	// add generic onLoad events for images and scripts
+	// add generic onLoad events for elements that have onload events
 	__.onLoad = function (element, callback, timeout) {
 		var done = false;
 
@@ -827,13 +827,38 @@
 	__.PubSubPattern.prototype.on = function on (eventname, callback, once) {
 		var self = this;
 
-		if (once) {
-			return self.once(eventname, callback);
+		var events = eventname.split(' ');
+
+		// It is recommended that your object have a subscriptions object for self-documentation, but the code will detect if you don't and add one.
+		if (!self.hasOwnProperty('subscriptions')) {
+			self.subscriptions = {};
 		};
 
-		__.definePath(self, 'subscriptions.' + eventname, []);
-		self.subscriptions[eventname][self.subscriptions[eventname].length] = callback;
-		return [eventname, callback]; // handle
+		if (once) {
+			var once_handles = [], once_counter = 0, once_limit = events.length;
+			while (once_counter < once_limit) {
+				once_handles[once_handles.length] = self.once(events[once_counter], callback);
+				once_counter++;
+			};
+
+			return (once_handles.length === 1 ? once_handles[0] : once_handles);
+		};
+
+		var event_handles = [], event_counter = 0, event_limit = events.length;
+		while (event_counter < event_limit) {
+			var current_event = events[event_counter];
+
+			if (!self.subscriptions.hasOwnProperty(current_event)) {
+				self.subscriptions[current_event] = [];
+			};
+
+			self.subscriptions[current_event][self.subscriptions[current_event].length] = callback;
+
+			event_handles[event_handles.length] = [current_event, callback]; // handle
+			event_counter++;
+		};
+
+		return (event_handles.length === 1 ? event_handles[0] : event_handles);
 	};
 
 	__.PubSubPattern.prototype.off = function off (handle) {
