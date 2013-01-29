@@ -803,10 +803,14 @@
 
 	__.SharedMethods = __.PubSubPattern = function PubSubPattern (){};
 
-	__.PubSubPattern.prototype.cancelSubscriptions = function cancelSubscriptions () {
+	__.PubSubPattern.prototype.cancelSubscriptions = function cancelSubscriptions (eventname) {
 		var self = this;
 
-		self.subscriptions = {};
+		if (eventname && __.path(self, 'subscriptions.' + eventname, false)) {
+			self.subscriptions[eventname] = [];
+		} else if (!eventname) {
+			self.subscriptions = {};
+		};
 	};
 
 	__.PubSubPattern.prototype.once = function once (eventname, callback) {
@@ -823,19 +827,11 @@
 	__.PubSubPattern.prototype.on = function on (eventname, callback, once) {
 		var self = this;
 
-		// It is recommended that your object have a subscriptions object for self-documentation, but the code will detect if you don't and add one.
-		if (!self.hasOwnProperty('subscriptions')) {
-			self.subscriptions = {};
-		};
-
 		if (once) {
 			return self.once(eventname, callback);
 		};
 
-		if (!self.subscriptions.hasOwnProperty(eventname)) {
-			self.subscriptions[eventname] = [];
-		};
-
+		__.definePath(self, 'subscriptions.' + eventname, []);
 		self.subscriptions[eventname][self.subscriptions[eventname].length] = callback;
 		return [eventname, callback]; // handle
 	};
