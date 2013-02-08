@@ -66,7 +66,7 @@
 	};
 
 	__.parseFilename = (function(){
-		var split_regex = /(.+)\.([^.]+)$/g;
+		var split_regex = /(.+)\.([^.]+)$/;
 
 		return function (path) {
 			var matches = split_regex.exec(path);
@@ -1293,7 +1293,7 @@
 				self.callbacks[counter].apply(self, self.args[counter]);
 				counter++;
 			};
-		};	
+		};
 	};
 
 	__.eval_time = new Date() - start_time;
