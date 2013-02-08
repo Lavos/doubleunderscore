@@ -4,7 +4,7 @@
  *
  *        Kris Cost, kris.cost@gmail.com
  *
- *        License under Creative Commons: Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0)
+ *        Licensed under Creative Commons: Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0)
  *        http://creativecommons.org/licenses/by-sa/3.0/
  *
  *        Adapted code licensed by their respective authors.
@@ -1220,33 +1220,81 @@
 
 
 	// limited-space localStorage/cookie-backed cache
+	__.CacheManager  = function CacheManager () {
+		var self = this;
+
+		self.caches = {};
+	};
+
+	__.CacheManager.prototype.getCache = function getCache (name, limit) {
+		var self = this;
+
+		return self.caches[name] || (self.caches[name] = new __.Cache(name, limit));
+	};
+
+	__.caches = new __.CacheManager();
+
 	__.Cache = function Cache (name, limit) {
 		var self = this;
 
 		self.name = name || 'cache';
 		self.limit = (limit ? Math.min(limit, 50) : 50);
-		self.cache = __.storage.get(self.name) || [];
+		self.data = __.storage.get(self.name) || [];
 	};
 
 	__.Cache.prototype.bump = function bump (value) {
 		var self = this;
 
-		if (self.cache.length === self.limit) {
-			self.cache.shift();
+		if (self.data.length === self.limit) {
+			self.data.shift();
 		};
 
-		self.cache[self.cache.length] = value;
-		__.storage.set(self.name, self.cache);	
+		self.data[self.data.length] = value;
+		__.storage.set(self.name, self.data);
 	};
 
 	__.Cache.prototype.clear = function clear (value) {
 		var self = this;
 
-		self.cache = [];
-		__.storage.set(self.name, self.cache);	
+		__.storage.set(self.name, self.data = []);
 	};
 
 
+	// delay callbacks until sometime in the future
+	__.Stash = function Stash (params) {
+		var self = this;
+
+		self.callbacks = [];
+		self.args = [];
+		self.purged = false;
+	};
+
+	__.Stash.prototype.push = function push (callback, args) {
+		var self = this;
+
+		args = args || [];
+
+		if (self.purged) {
+			callback.apply(self, args);
+		} else {
+			self.callbacks.push(callback);
+			self.args.push(args);
+		};
+	};
+
+	__.Stash.prototype.purge = function purge () {
+		var self = this;
+
+		if (!self.purged) {
+			self.purged = true;
+
+			var counter = 0, limit = self.callbacks.length;
+			while (counter < limit) {
+				self.callbacks[counter].apply(self, self.args[counter]);
+				counter++;
+			};
+		};	
+	};
 
 	__.eval_time = new Date() - start_time;
 
