@@ -322,7 +322,7 @@
 		return str_format;
 	})();
 
-	__extender.vsprintf = function(fmt, argv) {
+	__.vsprintf = function(fmt, argv) {
 		argv.unshift(fmt);
 		return __.sprintf.apply(null, argv);
 	};
@@ -845,7 +845,7 @@
 
 		__.addEvent(document, 'mousemove', userActionFunction);
 
-		functio userActionFunction () {
+		function userActionFunction () {
 			__.removeEvent(document, 'mousemove', userActionFunction);
 
 			if (timer) {
