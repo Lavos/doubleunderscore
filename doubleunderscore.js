@@ -438,6 +438,18 @@
 		return !(value === null || value === void 0 || value === '' || value === [] || value === false);
 	};
 
+	// get array sum
+	__.sum = function sum (arr) {
+		var total = 0;
+
+		var counter = arr.length;
+		while (counter--) {
+			total += arr[counter];
+		};
+
+		return total;
+	};
+
 	__.parseFilename = (function(){
 		var split_regex = /(.+)\.([^.]+)$/;
 
