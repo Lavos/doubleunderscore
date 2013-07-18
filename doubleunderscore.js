@@ -1,3 +1,7 @@
+(function(){
+
+// {{{ Credits, Info
+
 /*
  *       doubleunderscore
  *       https://github.com/Lavos/doubleunderscore
@@ -10,21 +14,13 @@
  *       Adapted code licensed by their respective authors.
  */
 
-(function(root, factory){
-	if (typeof root['define'] === 'function' && define.amd) {
-		define(function(){ return factory(); });
-	} else {
-		root['__'] = factory();
-	};
-})(window, function(external){
-
+// }}} close Credits, Info
 // {{{ Core Functionality
 
 	var start_time = new Date();
 
 	var __ = function __ (){};
 
-	var previousDoubleUnderscore = this.__;
 	__.version = 20130528;
 
 	__.each = function (obj, iterator) {
@@ -52,97 +48,136 @@
 		return obj;
 	};
 
-	__.noConflict = function(){
-		this.__ = previousDoubleUnderscore;
-		return this;
-	};
-
-
 // }}} close Core Functionality
 // {{{ Third-party Functions
 
-	// adapted from: https://github.com/samsonjs/strftime - Copyright 2010 - 2011 Sami Samhuri <sami.samhuri@gmail.com>, MIT License
+	//
+	// strftime
+	// github.com/samsonjs/strftime
+	// @_sjs
+	//
+	// Copyright 2010 - 2013 Sami Samhuri <sami@samhuri.net>
+	//
+	// MIT License
+	// http://sjs.mit-license.org
+	//
 	// usage: __.strftime(format_string, [instance of Date], [run-time locale object], [use UTC boolean]);
-	__.strftime = (function() {
-		function words(s) { return (s || '').split(' '); };
 
-		var DefaultLocale = {
-			days: words('Sunday Monday Tuesday Wednesday Thursday Friday Saturday'),
-			shortDays: words('Sun Mon Tue Wed Thu Fri Sat'),
-			months: words('January February March April May June July August September October November December'),
-			shortMonths: words('Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'),
-			AM: 'AM',
-			PM: 'PM'
+	(function(extender){
+		//// Export the API
+		
+		extender.strftime = strftime;
+		extender.strftimeUTC = strftimeUTC;
+		extender.localizedStrftime = localizedStrftime;
+
+		////
+
+		function words(s) { return (s || '').split(' '); }
+
+		var DefaultLocale =
+		{ days: words('Sunday Monday Tuesday Wednesday Thursday Friday Saturday')
+		, shortDays: words('Sun Mon Tue Wed Thu Fri Sat')
+		, months: words('January February March April May June July August September October November December')
+		, shortMonths: words('Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec')
+		, AM: 'AM'
+		, PM: 'PM'
+		, am: 'am'
+		, pm: 'pm'
 		};
 
-		function pad(n, padding) {
-			padding = padding || '0';
-			return n < 10 ? (padding + n) : n;
-		};
+		function strftime(fmt, d, locale) {
+			return _strftime(fmt, d, locale, false);
+		}
 
-		function hours12(d) {
-			var hour = d.getHours();
-			if (hour == 0) hour = 12;
-			else if (hour > 12) hour -= 12;
-			return hour;
-		};
+		function strftimeUTC(fmt, d, locale) {
+			return _strftime(fmt, d, locale, true);
+		}
 
-		function strftime(fmt, d, locale, useUTC) {
-			return _strftime(fmt, d, locale, (useUTC || false));
-		};
-
-		function getLocalizedStrftime(locale) {
+		function localizedStrftime(locale) {
 			return function(fmt, d) {
 				return strftime(fmt, d, locale);
 			};
-		};
+		}
 
 		// locale is an object with the same structure as DefaultLocale
 		function _strftime(fmt, d, locale, _useUTC) {
 			// d and locale are optional so check if d is really the locale
-			if (d && !(d instanceof Date)) {
+			if (d && !quacksLikeDate(d)) {
 				locale = d;
 				d = undefined;
-			};
-
+			}
 			d = d || new Date();
 			locale = locale || DefaultLocale;
 			locale.formats = locale.formats || {};
-
+			var msDelta = 0;
 			if (_useUTC) {
-				d = new Date(d.getTime() + ((d.getTimezoneOffset() || 0) * 60000));
-			};
+				msDelta = (d.getTimezoneOffset() || 0) * 60000;
+				d = new Date(d.getTime() + msDelta);
+			}
 
-			// Most of the specifiers supported by C's strftime
-			return fmt.replace(/%(.)/g, function(_, c) {
+			// Most of the specifiers supported by C's strftime, and some from Ruby.
+			// Some other syntax extensions from Ruby are supported: %-, %_, and %0
+			// to pad with nothing, space, or zero (respectively).
+			return fmt.replace(/%([-_0]?.)/g, function(_, c) {
+				var mod, padding;
+				if (c.length == 2) {
+					mod = c[0];
+					// omit padding
+					if (mod == '-') {
+						padding = '';
+					}
+					// pad with space
+					else if (mod == '_') {
+						padding = ' ';
+					}
+					// pad with zero
+					else if (mod == '0') {
+						padding = '0';
+					}
+					else {
+						// unrecognized, return the format
+						return _;
+					}
+					c = c[1];
+				}
 				switch (c) {
 					case 'A': return locale.days[d.getDay()];
 					case 'a': return locale.shortDays[d.getDay()];
 					case 'B': return locale.months[d.getMonth()];
-					case 'b': // fall through
-					case 'h': return locale.shortMonths[d.getMonth()];
-					case 'D': return strftime(locale.formats.D || '%m/%d/%y', d, locale);
-					case 'd': return pad(d.getDate());
+					case 'b': return locale.shortMonths[d.getMonth()];
+					case 'C': return pad(Math.floor(d.getFullYear() / 100), padding);
+					case 'D': return _strftime(locale.formats.D || '%m/%d/%y', d, locale);
+					case 'd': return pad(d.getDate(), padding);
 					case 'e': return d.getDate();
-					case 'F': return strftime(locale.formats.F || '%Y-%m-%d', d, locale);
-					case 'H': return pad(d.getHours());
-					case 'I': return pad(hours12(d));
-					case 'k': return pad(d.getHours(), ' ');
-					case 'l': return pad(hours12(d), ' ');
-					case 'M': return pad(d.getMinutes());
-					case 'm': return pad(d.getMonth() + 1);
+					case 'F': return _strftime(locale.formats.F || '%Y-%m-%d', d, locale);
+					case 'H': return pad(d.getHours(), padding);
+					case 'h': return locale.shortMonths[d.getMonth()];
+					case 'I': return pad(hours12(d), padding);
+					case 'j':
+						var y=new Date(d.getFullYear(), 0, 1);
+						var day = Math.ceil((d.getTime() - y.getTime()) / (1000*60*60*24));
+						return pad(day, 3);
+					case 'k': return pad(d.getHours(), padding == null ? ' ' : padding);
+					case 'L': return pad(Math.floor(d.getTime() % 1000), 3);
+					case 'l': return pad(hours12(d), padding == null ? ' ' : padding);
+					case 'M': return pad(d.getMinutes(), padding);
+					case 'm': return pad(d.getMonth() + 1, padding);
 					case 'n': return '\n';
+					case 'o': return String(d.getDate()) + ordinal(d.getDate());
+					case 'P': return d.getHours() < 12 ? locale.am : locale.pm;
 					case 'p': return d.getHours() < 12 ? locale.AM : locale.PM;
-					case 'R': return strftime(locale.formats.R || '%H:%M', d, locale);
-					case 'r': return strftime(locale.formats.r || '%I:%M:%S %p', d, locale);
-					case 'S': return pad(d.getSeconds());
-					case 's': return d.getTime();
-					case 'T': return strftime(locale.formats.T || '%H:%M:%S', d, locale);
+					case 'R': return _strftime(locale.formats.R || '%H:%M', d, locale);
+					case 'r': return _strftime(locale.formats.r || '%I:%M:%S %p', d, locale);
+					case 'S': return pad(d.getSeconds(), padding);
+					case 's': return Math.floor((d.getTime() - msDelta) / 1000);
+					case 'T': return _strftime(locale.formats.T || '%H:%M:%S', d, locale);
 					case 't': return '\t';
+					case 'U': return pad(weekNumber(d, 'sunday'), padding);
 					case 'u':
 						var day = d.getDay();
 						return day == 0 ? 7 : day; // 1 - 7, Monday is first day of the week
-					case 'v': return strftime(locale.formats.v || '%e-%b-%Y', d, locale);
+					case 'v': return _strftime(locale.formats.v || '%e-%b-%Y', d, locale);
+					case 'W': return pad(weekNumber(d, 'monday'), padding);
 					case 'w': return d.getDay(); // 0 - 6, Sunday is first day of the week
 					case 'Y': return d.getFullYear();
 					case 'y':
@@ -162,64 +197,109 @@
 						}
 						else {
 							var off = d.getTimezoneOffset();
-							return (off < 0 ? '-' : '+') + pad(off / 60) + pad(off % 60);
+							return (off < 0 ? '+' : '-') + pad(Math.abs(off / 60)) + pad(off % 60);
 						}
 					default: return c;
-				};
+				}
 			});
-		};
-
-		return strftime;
-	})();
-
-	/**
-	sprintf() for JavaScript 0.7-beta1
-	http://www.diveintojavascript.com/projects/javascript-sprintf
-
-	Copyright (c) Alexandru Marasteanu <alexaholic [at) gmail (dot] com>
-	All rights reserved.
-
-	Redistribution and use in source and binary forms, with or without
-	modification, are permitted provided that the following conditions are met:
-	    * Redistributions of source code must retain the above copyright
-	      notice, this list of conditions and the following disclaimer.
-	    * Redistributions in binary form must reproduce the above copyright
-	      notice, this list of conditions and the following disclaimer in the
-	      documentation and/or other materials provided with the distribution.
-	    * Neither the name of sprintf() for JavaScript nor the
-	      names of its contributors may be used to endorse or promote products
-	      derived from this software without specific prior written permission.
-
-	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-	ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-	WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-	DISCLAIMED. IN NO EVENT SHALL Alexandru Marasteanu BE LIABLE FOR ANY
-	DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-	(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-	LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-	ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-	(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-	SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-	**/
-
-	__.sprintf = (function() {
-		function get_type(variable) {
-			return Object.prototype.toString.call(variable).slice(8, -1).toLowerCase();
-		}
-		function str_repeat(input, multiplier) {
-			for (var output = []; multiplier > 0; output[--multiplier] = input) {/* do nothing */}
-			return output.join('');
 		}
 
-		var str_format = function() {
-			if (!str_format.cache.hasOwnProperty(arguments[0])) {
-				str_format.cache[arguments[0]] = str_format.parse(arguments[0]);
+		var RequiredDateMethods = ['getTime', 'getTimezoneOffset', 'getDay', 'getDate', 'getMonth', 'getFullYear', 'getYear', 'getHours', 'getMinutes', 'getSeconds'];
+		function quacksLikeDate(x) {
+			var i = 0
+				, n = RequiredDateMethods.length
+				;
+			for (i = 0; i < n; ++i) {
+				if (typeof x[RequiredDateMethods[i]] != 'function') {
+					return false;
+				}
 			}
-			return str_format.format.call(null, str_format.cache[arguments[0]], arguments);
+			return true;
+		}
+
+		// Default padding is '0' and default length is 2, both are optional.
+		function pad(n, padding, length) {
+			// pad(n, <length>)
+			if (typeof padding === 'number') {
+				length = padding;
+				padding = '0';
+			}
+
+			// Defaults handle pad(n) and pad(n, <padding>)
+			if (padding == null) {
+				padding = '0';
+			}
+			length = length || 2;
+
+			var s = String(n);
+			// padding may be an empty string, don't loop forever if it is
+			if (padding) {
+				while (s.length < length) s = padding + s;
+			}
+			return s;
+		}
+
+		function hours12(d) {
+			var hour = d.getHours();
+			if (hour == 0) hour = 12;
+			else if (hour > 12) hour -= 12;
+			return hour;
+		}
+
+		// Get the ordinal suffix for a number: st, nd, rd, or th
+		function ordinal(n) {
+			var i = n % 10
+				, ii = n % 100
+				;
+			if ((ii >= 11 && ii <= 13) || i === 0 || i >= 4) {
+				return 'th';
+			}
+			switch (i) {
+				case 1: return 'st';
+				case 2: return 'nd';
+				case 3: return 'rd';
+			}
+		}
+
+		// firstWeekday: 'sunday' or 'monday', default is 'sunday'
+		//
+		// Pilfered & ported from Ruby's strftime implementation.
+		function weekNumber(d, firstWeekday) {
+			firstWeekday = firstWeekday || 'sunday';
+
+			// This works by shifting the weekday back by one day if we
+			// are treating Monday as the first day of the week.
+			var wday = d.getDay();
+			if (firstWeekday == 'monday') {
+				if (wday == 0) // Sunday
+					wday = 6;
+				else
+					wday--;
+			}
+			var firstDayOfYear = new Date(d.getFullYear(), 0, 1)
+				, yday = (d - firstDayOfYear) / 86400000
+				, weekNum = (yday + 7 - wday) / 7
+				;
+			return Math.floor(weekNum);
+		}
+
+	}(__));
+
+
+
+	/*! sprintf.js | Copyright (c) 2007-2013 Alexandru Marasteanu <hello at alexei dot ro> | 3 clause BSD license */
+	// https://github.com/alexei/sprintf.js @0260e01c7162ee3e9c76ca9bd24c4a1377c185e8
+	// - modified to work in this context -
+
+	(function(ctx) {
+		var sprintf = function() {
+			if (!sprintf.cache.hasOwnProperty(arguments[0])) {
+				sprintf.cache[arguments[0]] = sprintf.parse(arguments[0]);
+			}
+			return sprintf.format.call(null, sprintf.cache[arguments[0]], arguments);
 		};
 
-		str_format.format = function(parse_tree, argv) {
+		sprintf.format = function(parse_tree, argv) {
 			var cursor = 1, tree_length = parse_tree.length, node_type = '', arg, output = [], i, k, match, pad, pad_character, pad_length;
 			for (i = 0; i < tree_length; i++) {
 				node_type = get_type(parse_tree[i]);
@@ -255,7 +335,7 @@
 						case 'f': arg = match[7] ? parseFloat(arg).toFixed(match[7]) : parseFloat(arg); break;
 						case 'o': arg = arg.toString(8); break;
 						case 's': arg = ((arg = String(arg)) && match[7] ? arg.substring(0, match[7]) : arg); break;
-						case 'u': arg = Math.abs(arg); break;
+						case 'u': arg = arg >>> 0; break;
 						case 'x': arg = arg.toString(16); break;
 						case 'X': arg = arg.toString(16).toUpperCase(); break;
 					}
@@ -269,9 +349,9 @@
 			return output.join('');
 		};
 
-		str_format.cache = {};
+		sprintf.cache = {};
 
-		str_format.parse = function(fmt) {
+		sprintf.parse = function(fmt) {
 			var _fmt = fmt, match = [], parse_tree = [], arg_names = 0;
 			while (_fmt) {
 				if ((match = /^[^\x25]+/.exec(_fmt)) !== null) {
@@ -319,72 +399,72 @@
 			return parse_tree;
 		};
 
-		return str_format;
-	})();
+		var vsprintf = function(fmt, argv, _argv) {
+			_argv = argv.slice(0);
+			_argv.splice(0, 0, fmt);
+			return sprintf.apply(null, _argv);
+		};
 
-	__.vsprintf = function(fmt, argv) {
-		argv.unshift(fmt);
-		return __.sprintf.apply(null, argv);
-	};
+		/**
+		 * helpers
+		 */
+		function get_type(variable) {
+			return Object.prototype.toString.call(variable).slice(8, -1).toLowerCase();
+		}
+
+		function str_repeat(input, multiplier) {
+			for (var output = []; multiplier > 0; output[--multiplier] = input) {/* do nothing */}
+			return output.join('');
+		}
+
+		/**
+		 * export to either browser or node.js
+		 */
+		ctx.sprintf = sprintf;
+		ctx.vsprintf = vsprintf;
+	})(__);
 
 
 	/*!
-	* Cookies.js - 0.2.1
-	* Thursday, October 18 2012 @ 8:18 PM EST
-	*
-	* Copyright (c) 2012, Scott Hamper
-	* Licensed under the MIT license,
-	* http://www.opensource.org/licenses/MIT
-	*/
+	 * Cookies.js - 0.3.1
+	 * Wednesday, April 24 2013 @ 2:28 AM EST
+	 *
+	 * Copyright (c) 2013, Scott Hamper
+	 * Licensed under the MIT license,
+	 * http://www.opensource.org/licenses/MIT
+	 *
+	 * https://github.com/ScottHamper/Cookies
+	 * - modified to work in this context -
+	 */
 
-	// modified to work in this context
-
-	__.cookies = (function (document, undefined) {
+	__.cookies = (function (undefined) {
 		'use strict';
 
 		var Cookies = function (key, value, options) {
-			return arguments.length === 1 ? Cookies.get(key) : Cookies.set(key, value, options);
+			return arguments.length === 1 ?
+			Cookies.get(key) : Cookies.set(key, value, options);
 		};
 
-		Cookies.get = function (key) {
-			if (document.cookie !== Cookies._cacheString) {
-				Cookies._populateCache();
-			}
-
-			return Cookies._cache[key];
-		};
+		// Allows for setter injection in unit tests
+		Cookies._document = document;
+		Cookies._navigator = navigator;
 
 		Cookies.defaults = {
 			path: '/'
 		};
 
+		Cookies.get = function (key) {
+			if (Cookies._cachedDocumentCookie !== Cookies._document.cookie) {
+				Cookies._renewCache();
+			}
+
+			return Cookies._cache[key];
+		};
+
 		Cookies.set = function (key, value, options) {
-			var options = {
-				path: options && options.path || Cookies.defaults.path,
-				domain: options && options.domain || Cookies.defaults.domain,
-				expires: options && options.expires || Cookies.defaults.expires,
-				secure: options && options.secure !== undefined ? options.secure : Cookies.defaults.secure
-			};
-
-			if (value === undefined) {
-				options.expires = -1;
-			}
-
-			switch (typeof options.expires) {
-				// If a number is passed in, make it work like 'max-age'
-				case 'number': options.expires = new Date(new Date().getTime() + options.expires * 1000); break;
-				// Allow multiple string formats for dates
-				case 'string': options.expires = new Date(options.expires); break;
-			}
-
-			// Escape only the characters that should be escaped as defined by RFC6265
-			var cookieString = encodeURIComponent(key) + '=' + (value + '').replace(/[^!#-+\--:<-\[\]-~]/g, encodeURIComponent);
-			cookieString += options.path ? ';path=' + options.path : '';
-			cookieString += options.domain ? ';domain=' + options.domain : '';
-			cookieString += options.expires ? ';expires=' + options.expires.toGMTString() : '';
-			cookieString += options.secure ? ';secure' : '';
-
-			document.cookie = cookieString;
+			options = Cookies._getExtendedOptions(options);
+			options.expires = Cookies._getExpiresDate(value === undefined ? -1 : options.expires);
+			Cookies._document.cookie = Cookies._generateCookieString(key, value, options);
 
 			return Cookies;
 		};
@@ -393,35 +473,90 @@
 			return Cookies.set(key, undefined, options);
 		};
 
-		Cookies._populateCache = function () {
-			Cookies._cache = {};
-			Cookies._cacheString = document.cookie;
-
-			var cookiesArray = Cookies._cacheString.split('; ');
-			for (var i = 0; i < cookiesArray.length; i++) {
-				// The cookie value can contain a '=', so cannot use 'split'
-				var separatorIndex = cookiesArray[i].indexOf('=');
-				var key = decodeURIComponent(cookiesArray[i].substr(0, separatorIndex));
-				var value = decodeURIComponent(cookiesArray[i].substr(separatorIndex + 1));
-
-				// The first instance of a key in the document.cookie string
-				// is the most locally scoped cookie with the specified key.
-				// The value of this key will be sent to the web server, so we'll
-				// just ignore any other instances of the key.
-				if (Cookies._cache[key] === undefined) {
-					Cookies._cache[key] = value;
-				}
-			}
+		Cookies._getExtendedOptions = function (options) {
+			return {
+				path: options && options.path || Cookies.defaults.path,
+				domain: options && options.domain || Cookies.defaults.domain,
+				expires: options && options.expires || Cookies.defaults.expires,
+				secure: options && options.secure !== undefined ?  options.secure : Cookies.defaults.secure
+			};
 		};
 
-		Cookies.enabled = (function () {
-			var isEnabled = Cookies.set('cookies.js', '1').get('cookies.js') === '1';
-			Cookies.expire('cookies.js');
-			return isEnabled;
-		})();
+		Cookies._isValidDate = function (date) {
+			return Object.prototype.toString.call(date) === '[object Date]' && !isNaN(date.getTime());
+		};
+
+		Cookies._getExpiresDate = function (expires, now) {
+			now = now || new Date();
+			switch (typeof expires) {
+			case 'number': expires = new Date(now.getTime() + expires * 1000); break;
+			case 'string': expires = new Date(expires); break;
+			}
+
+			if (expires && !Cookies._isValidDate(expires)) {
+				throw new Error('`expires` parameter cannot be converted to a valid Date instance');
+			}
+
+			return expires;
+		};
+
+		Cookies._generateCookieString = function (key, value, options) {
+			key = encodeURIComponent(key);
+			value = (value + '').replace(/[^!#$&-+\--:<-\[\]-~]/g, encodeURIComponent);
+			options = options || {};
+
+			var cookieString = key + '=' + value;
+			cookieString += options.path ? ';path=' + options.path : '';
+			cookieString += options.domain ? ';domain=' + options.domain : '';
+			cookieString += options.expires ? ';expires=' + options.expires.toGMTString() : '';
+			cookieString += options.secure ? ';secure' : '';
+
+			return cookieString;
+		};
+
+		Cookies._getCookieObjectFromString = function (documentCookie) {
+			var cookieObject = {};
+			var cookiesArray = documentCookie ? documentCookie.split('; ') : [];
+
+			for (var i = 0; i < cookiesArray.length; i++) {
+				var cookieKvp = Cookies._getKeyValuePairFromCookieString(cookiesArray[i]);
+
+				if (cookieObject[cookieKvp.key] === undefined) {
+					cookieObject[cookieKvp.key] = cookieKvp.value;
+				}
+			}
+
+			return cookieObject;
+		};
+
+		Cookies._getKeyValuePairFromCookieString = function (cookieString) {
+			// "=" is a valid character in a cookie value according to RFC6265, so cannot `split('=')`
+			var separatorIndex = cookieString.indexOf('=');
+
+			// IE omits the "=" when the cookie value is an empty string
+			separatorIndex = separatorIndex < 0 ? cookieString.length : separatorIndex;
+
+			return {
+				key: decodeURIComponent(cookieString.substr(0, separatorIndex)),
+				value: decodeURIComponent(cookieString.substr(separatorIndex + 1))
+			};
+		};
+
+		Cookies._renewCache = function () {
+			Cookies._cache = Cookies._getCookieObjectFromString(Cookies._document.cookie);
+			Cookies._cachedDocumentCookie = Cookies._document.cookie;
+		};
+
+		Cookies._areEnabled = function () {
+			return Cookies._navigator.cookieEnabled ||
+			Cookies.set('cookies.js', 1).get('cookies.js') === '1';
+		};
+
+		Cookies.enabled = Cookies._areEnabled();
 
 		return Cookies;
-	})(document);
+	})();
+
 
 // }}} close Third-Party Functions
 // {{{ Utility Functions
@@ -840,7 +975,7 @@
 	__.removeEvent = function removeEvent (element, type, callback) {
 		if (element.detachEvent) {
 			element.detachEvent('on' + type, element[type + callback]);
-    			element[type + callback] = null;
+			element[type + callback] = null;
 		} else {
 			element.removeEventListener(type, callback, false);
 		};
@@ -990,6 +1125,30 @@
 
 		return node;
 	};
+
+	__.hasPath = (function (source, pathstr) {
+		function dive (point, index, properties) {
+			var prop_name = properties[index];
+
+			try {
+				if (typeof point === 'object' && point.hasOwnProperty(prop_name)) {
+					if (index === properties.length-1) {
+						return true;
+					} else {
+						return dive(point[prop_name], ++index, properties);
+					};
+				} else {
+					return false;
+				};
+			} catch (e) {
+				return false;
+			};
+		};
+
+		return function(obj, pathstr) {
+			return dive(obj, 0, pathstr.split('.'));
+		};
+	})();
 
 	// adapted from: http://javascriptweblog.wordpress.com/2011/08/08/fixing-the-javascript-typeof-operator/
 	__.getType = __.getClass = (function(obj) {
@@ -1521,19 +1680,22 @@
 
 		self.callbacks = [];
 		self.args = [];
+		self.contexts = [];
 		self.purged = false;
 	};
 
-	__.Stash.prototype.push = function push (callback, args) {
+	__.Stash.prototype.push = function push (callback, args, context) {
 		var self = this;
 
 		args = args || [];
+		context = context || self;	
 
 		if (self.purged) {
-			callback.apply(self, args);
+			callback.apply(context, args);
 		} else {
 			self.callbacks.push(callback);
 			self.args.push(args);
+			self.contexts.push(context);
 		};
 	};
 
@@ -1545,16 +1707,17 @@
 
 			var counter = 0, limit = self.callbacks.length;
 			while (counter < limit) {
-				self.callbacks[counter].apply(self, self.args[counter]);
+				self.callbacks[counter].apply(self.contexts[counter], self.args[counter]);
 				counter++;
 			};
 		};
 	};
 
 // }}} close Constuctors and Data Structures
-
+// {{{ Finally
 	__.eval_time = new Date() - start_time;
 	return __;
-});
+// }}} close Finally
 
 // # vim:fdm=marker
+})()
