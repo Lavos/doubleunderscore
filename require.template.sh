@@ -4,6 +4,6 @@ DOUBLEUNDERSCORE=$(cat)
 
 cat <<EOF
 define(function(){
-	return $DOUBLEUNDERSCORE;
+return $DOUBLEUNDERSCORE;
 });
 EOF

@@ -1070,7 +1070,7 @@
 		};
 
 		target_object._DecorationInits.push(decorator.init);
-		for (var methodName in decorator.methods) {
+		for (var methodName in __.path(decorator, 'methods', {}) {
 			target_object[methodName] = decorator.methods[methodName];
 		};
 

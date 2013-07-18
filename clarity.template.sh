@@ -4,6 +4,6 @@ DOUBLEUNDERSCORE=$(cat)
 
 cat <<EOF
 CLARITY.provide('doubleunderscore', [], function(){
-	return $DOUBLEUNDERSCORE;
+return $DOUBLEUNDERSCORE;
 });
 EOF
