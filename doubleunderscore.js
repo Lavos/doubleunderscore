@@ -619,7 +619,7 @@
 		return s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
 	};
 
-	// adapted from: underscore.js; added compile-time template settings, try/catch, removed 'with' usage
+	// adapted from: underscore.js; added compile-time template settings, try/catch, removed 'with' usage, added second parameter 'extra' when you don't want to extend or create a new object
 	__.template = (function template () {
 		var defaults = {
 			evaluate: /\[!([\s\S]+?)!\]/g,
@@ -1126,7 +1126,8 @@
 		return node;
 	};
 
-	__.hasPath = (function (source, pathstr) {
+	// walks an object's properties to see if it has a properity defined
+	__.hasPath = (function(){
 		function dive (point, index, properties) {
 			var prop_name = properties[index];
 
