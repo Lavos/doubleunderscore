@@ -65,7 +65,7 @@
 
 	(function(extender){
 		//// Export the API
-		
+
 		extender.strftime = strftime;
 		extender.strftimeUTC = strftimeUTC;
 		extender.localizedStrftime = localizedStrftime;
@@ -916,6 +916,8 @@
 		cssNode.href = cssfilename;
 		cssNode.media = 'all';
 		document.getElementsByTagName('head')[0].appendChild(cssNode);
+
+		return cssNode;
 	};
 
 	__.addStyle = function addStyle (rules) {
@@ -944,6 +946,8 @@
 		newScript.src = url;
 		var s = document.getElementsByTagName('script')[0];
 		s.parentNode.insertBefore(newScript, s);
+
+		return newScript;
 	};
 
 	__.addImage = function (url, callback, tracking, timeout) {
@@ -1689,7 +1693,7 @@
 		var self = this;
 
 		args = args || [];
-		context = context || self;	
+		context = context || self;
 
 		if (self.purged) {
 			callback.apply(context, args);
