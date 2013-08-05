@@ -1312,7 +1312,9 @@
 
 	// utility constructors
 
-	__.SerialManager = function SerialManager (max, callback) {
+	// Once max callbacks have been called, call a single callback
+
+	__.SerialManager = __.FanIn = function FanIn (max, callback) {
 		var self = this;
 
 		self.max = max;
@@ -1325,7 +1327,7 @@
 		};
 	};
 
-	__.SerialManager.prototype.bump = function (label, data) {
+	__.FanIn.prototype.bump = function bump (label, data) {
 		var self = this;
 
 		if (typeof label !== 'undefined') {
@@ -1337,12 +1339,15 @@
 		};
 	};
 
-	__.SerialManager.prototype.execute = function (data) {
+	__.FanIn.prototype.execute = function execute (data) {
 		var self = this;
 
 		self.callback(data);
 	};
 
+
+
+	// callbacks to be called in sequence
 
 	__.Queue = function Queue () {
 		var self = this;
@@ -1386,6 +1391,9 @@
 		self.pos++;
 		self.list[self.pos-1].apply(self, self.args[self.pos-1]);
 	};
+
+
+	// flexible wrapper for setTimeout / setInterval
 
 	__.Poll = function Poll (interval_duration) {
 		var self = this;
@@ -1453,6 +1461,9 @@
 			};
 		};
 	};
+
+
+	// animation object that only returns numbers to loop events, useful for animating non-CSS properties
 
 	__.Animation = function Animation (params) {
 		var self = this;
