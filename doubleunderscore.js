@@ -48,6 +48,27 @@
 		return obj;
 	};
 
+	__.indexOf = (function(){
+		function indexOf (array, item) {
+			var counter = 0, limit = array.length;
+			for (; counter < limit; counter++) {
+				if (array[counter] === item) {
+					return counter;
+				};
+			};
+
+			return -1;
+		};
+
+		return function (array, item) {
+			if (Array.prototype.indexOf && array.indexOf === Array.prototype.indexOf) {
+				return array.indexOf(item);
+			};
+
+			return indexOf(array, item);
+		};
+	})();
+
 // }}} close Core Functionality
 // {{{ Third-party Functions
 
@@ -583,6 +604,32 @@
 		};
 
 		return total;
+	};
+
+	__.hasIntersection = function hasIntersection (base) {
+		var rest = Array.prototype.slice.call(arguments, 1);
+		var success = false;
+
+		var counter = base.length;
+		while (counter--) {
+			var value = base[counter];
+
+			var rest_counter = rest.length;
+			while (rest_counter--) {
+				if (__.indexOf(rest[rest_counter], value) !== -1) {
+					success = true;
+				} else {
+					success = false;
+					break;
+				};
+			};
+
+			if (success) {
+				return success;
+			};
+		};
+
+		return success;
 	};
 
 	__.parseFilename = (function(){
