@@ -923,33 +923,17 @@
 	__.onLoad = function (element, callback, timeout) {
 		var done = false;
 
-		if (__.getType(callback) === 'function') {
-			function handler (override) {
-				if (override || (!done && (!this.readyState || this.readyState === 'loaded' || this.readyState === 'complete'))) {
-					done = true;
-
-					callback(this);
-					__.clearOnLoad(this);
-				};
+		__.addEvent(element, 'load', function(event){
+			if (!done) {
+				callback.call(this, event);
 			};
+		});
 
-			element.onload = element.onreadystatechange = handler;
-
-			if (timeout) {
-				element.timer = setTimeout(function(){
-					handler(true);
-				}, timeout);
-			};
-		};
-
-		return element;
-	};
-
-	__.clearOnLoad = function (element) {
-		element.onload = element.onreadystatechange = null;
-		if (element.timer) {
-			clearTimeout(element.timer);
-			element.timer = null;
+		if (timeout) {
+			element.timer = setTimeout(function(){
+				done = true;
+				callback.call(this);
+			}, timeout);
 		};
 
 		return element;
@@ -1054,6 +1038,19 @@
 			callback();
 		};
 	};
+
+	__.strToElement = (function(){
+		var stage = document.createElement('div');
+
+		return function strgtoElement (str) {
+			try {
+				stage.innerHTML = str.replace(/^[\s\n\r]+/g, '');
+				return stage.firstChild;
+			} catch (e) {
+				return null;
+			}
+		};
+	})();
 
 // }}} close DOM Functions
 // {{{ Object Functions
