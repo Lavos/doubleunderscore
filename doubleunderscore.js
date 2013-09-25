@@ -21,7 +21,7 @@
 
 	var __ = function __ (){};
 
-	__.version = 20130528;
+	__.version = 20130924;
 
 	__.each = function (obj, iterator) {
 		for (key in obj) {
@@ -1353,6 +1353,9 @@
 		__.definePath(self, attachment_point_string, source);
 	};
 
+	__.useNamespace = function useNamespace (namespace_name, closure) {
+		closure.call(window[namespace_name] = window[namespace_name] || new __.ModularNamespace());
+	};
 
 	// utility constructors
 
