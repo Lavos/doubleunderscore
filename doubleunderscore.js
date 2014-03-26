@@ -952,22 +952,26 @@
 	};
 
 	__.addStyle = function addStyle (rules) {
-		if (rules && rules.length > 0) {
-			var head = document.getElementsByTagName('head')[0];
-			var style_element = document.createElement('style');
-			style_element.type = 'text/css';
-
-			if (style_element.styleSheet) {
-				style_element.styleSheet.cssText = rules.join('\n');
-			} else {
-				style_element.appendChild(document.createTextNode(rules.join('\n')));
-			};
-
-			head.appendChild(style_element);
-			return style_element;
+		if (__.getClass(rules) === 'array') {
+			var rules_blob = rules.join('\n');
+		} else if (__.getClass(rules) === 'string') {
+			var rules_blob = rules;
 		} else {
 			return null;
 		};
+
+		var head = document.getElementsByTagName('head')[0];
+		var style_element = document.createElement('style');
+		style_element.type = 'text/css';
+
+		if (style_element.styleSheet) {
+			style_element.styleSheet.cssText = rules_blob;
+		} else {
+			style_element.appendChild(document.createTextNode(rules_blob));
+		};
+
+		head.appendChild(style_element);
+		return style_element;
 	};
 
 	__.addJS = function addJS (url, callback) {
